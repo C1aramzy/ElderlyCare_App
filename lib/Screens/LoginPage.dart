@@ -55,6 +55,7 @@ class _LoginPageState extends State<LoginPage> {
             MaterialPageRoute(
               builder: (context) =>  ElderlyHomePage(
                 userId: int.parse(data['user_id'].toString()),
+                fullName: data["full_name"] ?? 'User',
               ),
             ),
           );

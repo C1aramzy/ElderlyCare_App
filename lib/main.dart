@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'Screens/LoginPage.dart';
+//import 'Services/notifiService.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  //await NotifiService.initialize();
   runApp(const MyApp());
 }
 

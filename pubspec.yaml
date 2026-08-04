@@ -15,8 +15,9 @@ dependencies:
   
   http: ^1.2.2
   cupertino_icons: ^1.0.8
-  image_picker: ^1.1.2
+  image_picker: ^1.2.1
   mjpeg_stream: ^1.0.1
+  flutter_local_notifications: ^19.5.0
 
 dev_dependencies:
   flutter_test:

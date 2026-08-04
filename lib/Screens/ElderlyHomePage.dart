@@ -1,16 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../Services/mmWaveService.dart';
 
 import 'LoginPage.dart';
 import 'ElderlyAppointmentPage.dart';
+import 'MedicationPage.dart';
 
 class ElderlyHomePage extends StatefulWidget {
   final int userId;
+  final String fullName;
 
   const ElderlyHomePage({
     super.key,
-    required this.userId,
+    required this.userId, 
+    required this.fullName,
   });
 
   @override
@@ -18,12 +22,11 @@ class ElderlyHomePage extends StatefulWidget {
 }
 
 class _ElderlyHomePageState extends State<ElderlyHomePage> {
-  List motionData = [];
+  Map<String, dynamic>? currentStatus;
+  List<dynamic> motionData = [];
+
   bool isLoading = true;
   String errorMessage = '';
-
-  final String motionUrl =
-      'http://elderlym.atspace.cc/get_motion_activity.php';
 
   @override
   void initState() {
@@ -32,41 +35,46 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   }
 
   Future<void> fetchMotionData() async {
+  setState(() {
+    isLoading = true;
+    errorMessage = '';
+  });
+
+  try {
+    final data = await MmWaveService.getMotionData(
+      widget.userId,
+    );
+
+    debugPrint('Logged-in user ID: ${widget.userId}');
+    debugPrint('Motion data: $data');
+
+    if (!mounted) return;
+
+    final dynamic receivedStatus = data['current_status'];
+    final dynamic receivedEvents = data['events'];
+
     setState(() {
-      isLoading = true;
-      errorMessage = '';
+      currentStatus =
+          receivedStatus is Map<String, dynamic>
+              ? receivedStatus
+              : null;
+
+      motionData =
+          receivedEvents is List
+              ? receivedEvents
+              : [];
+
+      isLoading = false;
     });
+  } catch (e) {
+    if (!mounted) return;
 
-    try {
-      final response = await http.get(Uri.parse(motionUrl));
-
-      if (response.statusCode == 200) {
-        final decodedData = jsonDecode(response.body);
-
-        if (decodedData['success'] == true) {
-          setState(() {
-            motionData = decodedData['data'];
-            isLoading = false;
-          });
-        } else {
-          setState(() {
-            errorMessage = 'Unable to load motion activity.';
-            isLoading = false;
-          });
-        }
-      } else {
-        setState(() {
-          errorMessage = 'Server error: ${response.statusCode}';
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        errorMessage = 'Connection error: $e';
-        isLoading = false;
-      });
-    }
+    setState(() {
+      errorMessage = 'Connection error: $e';
+      isLoading = false;
+    });
   }
+}
 
   IconData getLocationIcon(String location) {
     switch (location.toLowerCase()) {
@@ -87,6 +95,105 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     if (location.isEmpty) return 'Unknown';
     return location[0].toUpperCase() + location.substring(1);
   }
+
+  String formatEventType(String eventType){
+    switch (eventType){
+      case 'fall detected':
+        return 'Fall Detected';
+      case 'motion':
+        return 'Motion Detected';
+      case 'no motion':
+        return 'No Motion Detected';
+      case 'recovered':
+        return 'Recovered';
+      default:
+        return eventType.replaceAll('_',' ');
+    }
+  }
+
+  String getStatusTitle(String status) {
+  switch (status) {
+    case 'normal_activity':
+      return 'Normal Activity';
+
+    case 'stationary':
+      return 'Person Stationary';
+
+    case 'no_presence':
+      return 'No Presence Detected';
+
+    case 'possible_fall':
+      return 'Checking Possible Fall';
+
+    case 'fall_detected':
+      return 'Fall Detected';
+
+    case 'movement_resumed':
+      return 'Movement Resumed';
+
+    case 'sensor_offline':
+      return 'Sensor Offline';
+
+    default:
+      return 'Status Unknown';
+  }
+}
+
+IconData getStatusIcon(String status) {
+  switch (status) {
+    case 'normal_activity':
+      return Icons.directions_walk;
+
+    case 'stationary':
+      return Icons.accessibility_new;
+
+    case 'no_presence':
+      return Icons.person_off;
+
+    case 'possible_fall':
+      return Icons.warning_amber_rounded;
+
+    case 'fall_detected':
+      return Icons.emergency;
+
+    case 'movement_resumed':
+      return Icons.check_circle_outline;
+
+    case 'sensor_offline':
+      return Icons.wifi_off;
+
+    default:
+      return Icons.sensors;
+  }
+}
+
+Color getStatusColor(String status) {
+  switch (status) {
+    case 'normal_activity':
+      return Colors.green;
+
+    case 'stationary':
+      return Colors.blueGrey;
+
+    case 'no_presence':
+      return Colors.orange;
+
+    case 'possible_fall':
+      return Colors.deepOrange;
+
+    case 'fall_detected':
+      return Colors.red;
+
+    case 'movement_resumed':
+      return Colors.blue;
+
+    case 'sensor_offline':
+      return Colors.grey;
+
+    default:
+      return Colors.grey;
+  }
+}
 
   void logout() {
     Navigator.pushReplacement(
@@ -124,7 +231,23 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final latestActivity = motionData.isNotEmpty ? motionData[0] : null;
+    final String statusCode =
+    currentStatus?['current_status']?.toString() ??
+    'unknown';
+
+    final String statusDescription =
+    currentStatus?['status_description']?.toString() ??
+    'No monitoring information available.';
+
+    final String lastSensorUpdate =
+    currentStatus?['last_sensor_update']?.toString() ??
+    'No update received';
+
+    final bool sensorOnline =
+    currentStatus?['sensor_online'].toString() == '1';
+
+    final bool activeFallAlert =
+    currentStatus?['active_fall_alert'].toString() == '1';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
@@ -177,9 +300,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Welcome back! This is your home dashboard.',
+                          "Welcome back, ${widget.fullName}!",
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             color: Colors.grey[700],
                           ),
                         ),
@@ -190,83 +313,108 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
+                            gradient : LinearGradient(
                               colors: [
-                                Color(0xFFE91E63),
-                                Color(0xFFF06292),
+                                getStatusColor(statusCode),
+                                getStatusColor(statusCode).withValues(
+                                  alpha: 0.72
+                                  ),
                               ],
                             ),
                             borderRadius: BorderRadius.circular(22),
                           ),
-                          child: latestActivity == null
+                          child: currentStatus == null
                               ? const Text(
-                                  'No sensor activity recorded yet.',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Monitoring Status',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                'No sensor status available yet.',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                ),
+                              )
+                              :Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Monitoring Status',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                    const SizedBox(height: 18),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on,
-                                          color: Colors.white,
-                                          size: 28,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Text(
-                                          formatLocation(
-                                            latestActivity['msensorNum']
-                                                .toString(),
-                                          ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        getStatusIcon(statusCode),
+                                        color: Colors.white,
+                                        size: 30,
+                                      ),
+
+                                      const SizedBox(width: 10),
+
+                                      Expanded(
+                                        child : Text(
+                                          getStatusTitle(statusCode),
                                           style: const TextStyle(
                                             color: Colors.white,
-                                            fontSize: 24,
+                                            fontSize: 23,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Last detected: ${latestActivity['motion_time']}',
-                                      style: const TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
                                       ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  Text(
+                                    statusDescription,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      height: 1.35,
                                     ),
-                                    const SizedBox(height: 14),
-                                    const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          color: Colors.greenAccent,
-                                          size: 12,
-                                        ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'System Online',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                  ),
+
+                                  const SizedBox(height: 14),
+
+                                  Text(
+                                    'Last Update: $lastSensorUpdate',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
                                     ),
-                                  ],
-                                ),
+                                  ),
+
+                                  const SizedBox(height: 14),
+
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.circle,
+                                        color: sensorOnline
+                                            ? Colors.greenAccent
+                                            : Colors.white70,
+                                        size: 12,
+                                      ),
+
+                                      const SizedBox(width: 8),
+
+                                      Text(
+                                        sensorOnline
+                                            ? 'Sensor Online'
+                                            : 'Sensor Offline',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                         ),
 
                         const SizedBox(height: 20),
@@ -346,8 +494,19 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                             featureCard(
                               icon: Icons.medication,
                               title: 'Medication',
-                              subtitle: 'Coming Soon',
+                              subtitle: 'View Medications',
                               color: Colors.orange,
+                              onTap: (){
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        MedicationPage(
+                                      userId: widget.userId,
+                                    ),
+                                  ),
+                                );
+                              }
                             ),
                             featureCard(
                               icon: Icons.calendar_month,
@@ -404,12 +563,21 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                                 itemCount: motionData.length,
                                 itemBuilder: (context, index) {
                                   final item = motionData[index];
-                                  final location =
-                                      item['msensorNum'].toString();
-                                  final time = item['motion_time'].toString();
+
+                                  final String eventType =
+                                      item['event_type'] ?? 'unknown';
+
+                                  final String description =
+                                      item['event_description']?.toString() ??
+                                       'No description available.';
+
+                                  final String time =
+                                      item['detected_at']?.toString() ??
+                                       'Unknown time';
 
                                   return activityCard(
-                                    location: location,
+                                    eventType: eventType,
+                                    description: description,
                                     time: time,
                                   );
                                 },
@@ -522,9 +690,12 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   }
 
   Widget activityCard({
-    required String location,
-    required String time,
+  required String eventType,
+  required String description,
+  required String time,
   }) {
+    final Color eventColor = getStatusColor(eventType);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -540,55 +711,60 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.pink.withValues(alpha: 0.12),
+              color: eventColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
-              getLocationIcon(location),
-              color: Colors.pink,
+              getStatusIcon(eventType),
+              color: eventColor,
               size: 28,
             ),
           ),
           const SizedBox(width: 14),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  formatLocation(location),
+                  formatEventType(eventType),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 4),
+                
                 Text(
-                  'Motion detected',
-                  style: TextStyle(
+                  description,
+                  style: const TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[700],
+                    color: Colors.grey,
                   ),
                 ),
-                const SizedBox(height: 2),
+
+                const SizedBox(height: 5),
+
                 Text(
                   time,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
-                    color: Colors.grey[500],
+                    color: Colors.grey,
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ]
+      )
     );
   }
-
   Widget actionButton({
     required IconData icon,
     required String label,
