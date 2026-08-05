@@ -5,7 +5,7 @@ class RobotCameraPage extends StatelessWidget {
   const RobotCameraPage({super.key});
 
   // Change this if your Raspberry Pi IP changes
-  static const String raspberryPiIp = '10.63.142.152';
+  static const String raspberryPiIp = '10.23.252.152';
 
   static const String cameraStreamUrl =
       'http://$raspberryPiIp:5000/video_feed';
