@@ -15,10 +15,12 @@ class MedicationPage extends StatefulWidget {
   });
 
   @override
-  State<MedicationPage> createState() => _MedicationPageState();
+  State<MedicationPage> createState() =>
+      _MedicationPageState();
 }
 
-class _MedicationPageState extends State<MedicationPage> {
+class _MedicationPageState
+    extends State<MedicationPage> {
   bool isLoading = true;
   int? markingScheduleId;
   bool isDeletingMedication = false;
@@ -55,7 +57,8 @@ class _MedicationPageState extends State<MedicationPage> {
     });
 
     try {
-      final results = await Future.wait([
+      final List<List<dynamic>> results =
+          await Future.wait([
         _getAllMedications(),
         _getTodayMedications(),
       ]);
@@ -67,35 +70,46 @@ class _MedicationPageState extends State<MedicationPage> {
         todayMedications = results[1];
         isLoading = false;
       });
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
 
       setState(() {
-        errorMessage = 'Connection error: $e';
+        errorMessage =
+            'Connection error: $error';
+
         isLoading = false;
       });
     }
   }
 
-  Future<List<dynamic>> _getAllMedications() async {
-    final response = await http
-        .get(
-          Uri.parse(
-            '$getMedicationUrl?user_id=${widget.userId}',
-          ),
-        )
-        .timeout(const Duration(seconds: 15));
+  Future<List<dynamic>>
+      _getAllMedications() async {
+    final http.Response response =
+        await http
+            .get(
+              Uri.parse(
+                '$getMedicationUrl'
+                '?user_id=${widget.userId}',
+              ),
+            )
+            .timeout(
+              const Duration(seconds: 15),
+            );
 
     if (response.statusCode != 200) {
       throw Exception(
-        'Medication server returned ${response.statusCode}.',
+        'Medication server returned '
+        '${response.statusCode}.',
       );
     }
 
-    final dynamic data = jsonDecode(response.body);
+    final dynamic data =
+        jsonDecode(response.body);
 
     if (data is! Map<String, dynamic>) {
-      throw Exception('Invalid medication response.');
+      throw Exception(
+        'Invalid medication response.',
+      );
     }
 
     if (data['success'] != true) {
@@ -105,19 +119,25 @@ class _MedicationPageState extends State<MedicationPage> {
       );
     }
 
-    final dynamic list = data['medications'];
+    final dynamic list =
+        data['medications'];
 
     return list is List ? list : [];
   }
 
-  Future<List<dynamic>> _getTodayMedications() async {
-    final response = await http
-        .get(
-          Uri.parse(
-            '$getTodayMedicationUrl?user_id=${widget.userId}',
-          ),
-        )
-        .timeout(const Duration(seconds: 15));
+  Future<List<dynamic>>
+      _getTodayMedications() async {
+    final http.Response response =
+        await http
+            .get(
+              Uri.parse(
+                '$getTodayMedicationUrl'
+                '?user_id=${widget.userId}',
+              ),
+            )
+            .timeout(
+              const Duration(seconds: 15),
+            );
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -126,10 +146,13 @@ class _MedicationPageState extends State<MedicationPage> {
       );
     }
 
-    final dynamic data = jsonDecode(response.body);
+    final dynamic data =
+        jsonDecode(response.body);
 
     if (data is! Map<String, dynamic>) {
-      throw Exception('Invalid today medication response.');
+      throw Exception(
+        'Invalid today medication response.',
+      );
     }
 
     if (data['success'] != true) {
@@ -139,7 +162,8 @@ class _MedicationPageState extends State<MedicationPage> {
       );
     }
 
-    final dynamic list = data['medications'];
+    final dynamic list =
+        data['medications'];
 
     return list is List ? list : [];
   }
@@ -156,17 +180,23 @@ class _MedicationPageState extends State<MedicationPage> {
     });
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(markTakenUrl),
-            body: {
-              'elderly_user_id': widget.userId.toString(),
-              'schedule_id': scheduleId.toString(),
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final http.Response response =
+          await http
+              .post(
+                Uri.parse(markTakenUrl),
+                body: {
+                  'elderly_user_id':
+                      widget.userId.toString(),
+                  'schedule_id':
+                      scheduleId.toString(),
+                },
+              )
+              .timeout(
+                const Duration(seconds: 15),
+              );
 
-      final dynamic data = jsonDecode(response.body);
+      final dynamic data =
+          jsonDecode(response.body);
 
       if (!mounted) return;
 
@@ -176,21 +206,26 @@ class _MedicationPageState extends State<MedicationPage> {
                   'Unable to update medication.'
               : 'Unable to update medication.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
       );
 
       if (data is Map<String, dynamic> &&
           data['success'] == true) {
         await loadMedicationPage();
       }
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            'Error updating medication: $e',
+            'Error updating medication: '
+            '$error',
           ),
         ),
       );
@@ -203,13 +238,17 @@ class _MedicationPageState extends State<MedicationPage> {
     }
   }
 
-  Future<void> openAddMedicationPage() async {
-    final bool? added = await Navigator.push<bool>(
+  Future<void>
+      openAddMedicationPage() async {
+    final bool? added =
+        await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddMedicationPage(
-          userId: widget.userId,
-        ),
+        builder: (BuildContext context) {
+          return AddMedicationPage(
+            userId: widget.userId,
+          );
+        },
       ),
     );
 
@@ -221,13 +260,16 @@ class _MedicationPageState extends State<MedicationPage> {
   Future<void> openEditMedicationPage(
     Map<String, dynamic> medication,
   ) async {
-    final bool? updated = await Navigator.push<bool>(
+    final bool? updated =
+        await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => AddMedicationPage(
-          userId: widget.userId,
-          medication: medication,
-        ),
+        builder: (BuildContext context) {
+          return AddMedicationPage(
+            userId: widget.userId,
+            medication: medication,
+          );
+        },
       ),
     );
 
@@ -240,40 +282,57 @@ class _MedicationPageState extends State<MedicationPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MedicationHistoryPage(
-          userId: widget.userId,
-        ),
+        builder: (BuildContext context) {
+          return MedicationHistoryPage(
+            userId: widget.userId,
+          );
+        },
       ),
     );
   }
 
-  Future<void> confirmArchiveMedication(
+  Future<void>
+      confirmArchiveMedication(
     Map<String, dynamic> medication,
   ) async {
     final String medicineName =
-        medication['medicine_name']?.toString() ??
+        medication['medicine_name']
+                ?.toString() ??
             'this medication';
 
-    final bool? confirmed = await showDialog<bool>(
+    final bool? confirmed =
+        await showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
+      builder: (
+        BuildContext dialogContext,
+      ) {
         return AlertDialog(
-          title: const Text('Remove Medication?'),
+          title: const Text(
+            'Remove Medication?',
+          ),
           content: Text(
-            '$medicineName will be removed from the active '
-            'medication list and future reminders will stop. '
-            'Existing medication history will be kept.',
+            '$medicineName will be removed '
+            'from the active medication list. '
+            'Future reminders will stop, but '
+            'existing medication history will '
+            'be kept.',
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(dialogContext, false);
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
               },
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.pop(dialogContext, true);
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
               },
               style: FilledButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -287,27 +346,39 @@ class _MedicationPageState extends State<MedicationPage> {
     );
 
     if (confirmed == true) {
-      await archiveMedication(medication);
+      await archiveMedication(
+        medication,
+      );
     }
   }
 
   Future<void> archiveMedication(
     Map<String, dynamic> medication,
   ) async {
-    if (isDeletingMedication) return;
+    if (isDeletingMedication) {
+      return;
+    }
 
     final int medicationId =
         int.tryParse(
-          medication['medication_id']?.toString() ?? '',
+          medication['medication_id']
+                  ?.toString() ??
+              '',
         ) ??
         0;
 
     if (medicationId <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
-          content: Text('Invalid medication ID.'),
+          content: Text(
+            'Invalid medication ID.',
+          ),
         ),
       );
+
       return;
     }
 
@@ -316,17 +387,25 @@ class _MedicationPageState extends State<MedicationPage> {
     });
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(archiveMedicationUrl),
-            body: {
-              'medication_id': medicationId.toString(),
-              'elderly_user_id': widget.userId.toString(),
-            },
-          )
-          .timeout(const Duration(seconds: 15));
+      final http.Response response =
+          await http
+              .post(
+                Uri.parse(
+                  archiveMedicationUrl,
+                ),
+                body: {
+                  'medication_id':
+                      medicationId.toString(),
+                  'elderly_user_id':
+                      widget.userId.toString(),
+                },
+              )
+              .timeout(
+                const Duration(seconds: 15),
+              );
 
-      final dynamic data = jsonDecode(response.body);
+      final dynamic data =
+          jsonDecode(response.body);
 
       if (!mounted) return;
 
@@ -336,21 +415,26 @@ class _MedicationPageState extends State<MedicationPage> {
                   'Unable to remove medication.'
               : 'Unable to remove medication.';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        SnackBar(
+          content: Text(message),
+        ),
       );
 
       if (data is Map<String, dynamic> &&
           data['success'] == true) {
         await loadMedicationPage();
       }
-    } catch (e) {
+    } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            'Error removing medication: $e',
+            'Error removing medication: '
+            '$error',
           ),
         ),
       );
@@ -368,15 +452,20 @@ class _MedicationPageState extends State<MedicationPage> {
       return 'Unknown time';
     }
 
-    final List<String> parts = time.split(':');
+    final List<String> parts =
+        time.split(':');
 
     if (parts.length < 2) {
       return time;
     }
 
-    int hour = int.tryParse(parts[0]) ?? 0;
+    int hour =
+        int.tryParse(parts[0]) ?? 0;
+
     final String minute = parts[1];
-    final String period = hour >= 12 ? 'PM' : 'AM';
+
+    final String period =
+        hour >= 12 ? 'PM' : 'AM';
 
     if (hour == 0) {
       hour = 12;
@@ -387,14 +476,22 @@ class _MedicationPageState extends State<MedicationPage> {
     return '$hour:$minute $period';
   }
 
-  String formatTakenTime(String? dateTime) {
-    if (dateTime == null || dateTime.isEmpty) {
+  String formatTakenTime(
+    String? dateTime,
+  ) {
+    if (dateTime == null ||
+        dateTime.isEmpty) {
       return '';
     }
 
     try {
-      final DateTime parsed = DateTime.parse(dateTime);
-      final TimeOfDay time = TimeOfDay.fromDateTime(parsed);
+      final DateTime parsed =
+          DateTime.parse(dateTime);
+
+      final TimeOfDay time =
+          TimeOfDay.fromDateTime(
+        parsed,
+      );
 
       return time.format(context);
     } catch (_) {
@@ -402,28 +499,38 @@ class _MedicationPageState extends State<MedicationPage> {
     }
   }
 
-  Color getDoseStatusColor(String status) {
+  Color getDoseStatusColor(
+    String status,
+  ) {
     switch (status) {
       case 'taken':
         return Colors.green;
+
       case 'taken_late':
         return Colors.orange;
+
       case 'missed':
         return Colors.red;
+
       case 'pending':
       default:
         return Colors.blueGrey;
     }
   }
 
-  IconData getDoseStatusIcon(String status) {
+  IconData getDoseStatusIcon(
+    String status,
+  ) {
     switch (status) {
       case 'taken':
         return Icons.check_circle;
+
       case 'taken_late':
         return Icons.schedule;
+
       case 'missed':
         return Icons.cancel;
+
       case 'pending':
       default:
         return Icons.hourglass_empty;
@@ -436,11 +543,16 @@ class _MedicationPageState extends State<MedicationPage> {
   ) {
     switch (status) {
       case 'taken':
-        return 'Taken at ${formatTakenTime(takenAt)}';
+        return 'Taken at '
+            '${formatTakenTime(takenAt)}';
+
       case 'taken_late':
-        return 'Taken late at ${formatTakenTime(takenAt)}';
+        return 'Taken late at '
+            '${formatTakenTime(takenAt)}';
+
       case 'missed':
         return 'Missed';
+
       case 'pending':
       default:
         return 'Pending';
@@ -452,54 +564,226 @@ class _MedicationPageState extends State<MedicationPage> {
       return 'No medication scheduled today';
     }
 
-    final int takenCount = todayMedications.where((item) {
-      if (item is! Map<String, dynamic>) {
-        return false;
-      }
+    final int takenCount =
+        todayMedications.where(
+      (dynamic item) {
+        if (item
+            is! Map<String, dynamic>) {
+          return false;
+        }
 
-      final String status =
-          item['dose_status']?.toString() ?? 'pending';
+        final String status =
+            item['dose_status']
+                    ?.toString() ??
+                'pending';
 
-      return status == 'taken' ||
-          status == 'taken_late';
-    }).length;
+        return status == 'taken' ||
+            status == 'taken_late';
+      },
+    ).length;
 
-    return '$takenCount of ${todayMedications.length} taken';
+    return '$takenCount of '
+        '${todayMedications.length} taken';
+  }
+
+  String getMedicationType(
+    Map<String, dynamic> medication,
+  ) {
+    return medication['medication_type']
+            ?.toString() ??
+        'long_term';
+  }
+
+  Widget buildMedicationTypeBadge(
+    String medicationType,
+  ) {
+    final bool isChronic =
+        medicationType != 'short_term';
+
+    final Color badgeColor =
+        isChronic
+            ? Colors.blue
+            : Colors.purple;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color: badgeColor.withValues(
+          alpha: 0.12,
+        ),
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+      child: Text(
+        isChronic
+            ? 'Chronic'
+            : 'Acute',
+        style: TextStyle(
+          color: isChronic
+              ? Colors.blue[800]
+              : Colors.purple[800],
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  void showLargeMedicationImage({
+    required String imageUrl,
+    required String medicineName,
+  }) {
+    if (imageUrl.isEmpty) {
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (
+        BuildContext dialogContext,
+      ) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.all(18),
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(20),
+          ),
+          child: ClipRRect(
+            borderRadius:
+                BorderRadius.circular(20),
+            child: Column(
+              mainAxisSize:
+                  MainAxisSize.min,
+              children: [
+                Container(
+                  color: Colors.white,
+                  padding:
+                      const EdgeInsets.only(
+                    left: 18,
+                    top: 10,
+                    bottom: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          medicineName,
+                          style:
+                              const TextStyle(
+                            fontSize: 18,
+                            fontWeight:
+                                FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          Navigator.pop(
+                            dialogContext,
+                          );
+                        },
+                        icon: const Icon(
+                          Icons.close,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: Container(
+                    color:
+                        const Color(0xFFF5F6FA),
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (
+                        BuildContext context,
+                        Object error,
+                        StackTrace? stackTrace,
+                      ) {
+                        return const Center(
+                          child: Icon(
+                            Icons
+                                .broken_image_outlined,
+                            size: 72,
+                            color: Colors.grey,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget buildMedicationImage({
     required String? imageUrl,
-    double size = 72,
+    required String medicineName,
+    double size = 112,
   }) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: imageUrl != null && imageUrl.isNotEmpty
-          ? Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (
-                context,
-                error,
-                stackTrace,
-              ) {
-                return const Icon(
-                  Icons.medication,
-                  color: Colors.orange,
-                  size: 36,
-                );
-              },
-            )
-          : const Icon(
-              Icons.medication,
-              color: Colors.orange,
-              size: 36,
+    final bool hasImage =
+        imageUrl != null &&
+        imageUrl.isNotEmpty;
+
+    return GestureDetector(
+      onTap: hasImage
+          ? () {
+              showLargeMedicationImage(
+                imageUrl: imageUrl,
+                medicineName:
+                    medicineName,
+              );
+            }
+          : null,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.orange.withValues(
+            alpha: 0.12,
+          ),
+          borderRadius:
+              BorderRadius.circular(18),
+          border: Border.all(
+            color: Colors.orange.withValues(
+              alpha: 0.2,
             ),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: hasImage
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (
+                  BuildContext context,
+                  Object error,
+                  StackTrace? stackTrace,
+                ) {
+                  return Icon(
+                    Icons.medication,
+                    color:
+                        Colors.orange[700],
+                    size: size * 0.43,
+                  );
+                },
+              )
+            : Icon(
+                Icons.medication,
+                color: Colors.orange[700],
+                size: size * 0.43,
+              ),
+      ),
     );
   }
 
@@ -507,7 +791,8 @@ class _MedicationPageState extends State<MedicationPage> {
     Map<String, dynamic> medication,
   ) {
     final String status =
-        medication['dose_status']?.toString() ??
+        medication['dose_status']
+                ?.toString() ??
             'pending';
 
     final bool alreadyTaken =
@@ -516,101 +801,146 @@ class _MedicationPageState extends State<MedicationPage> {
 
     final int scheduleId =
         int.tryParse(
-          medication['schedule_id']?.toString() ?? '',
+          medication['schedule_id']
+                  ?.toString() ??
+              '',
         ) ??
         0;
 
     final String takenAt =
-        medication['taken_at']?.toString() ?? '';
+        medication['taken_at']
+                ?.toString() ??
+            '';
 
     final String imageUrl =
-        medication['medicine_image_url']?.toString() ??
+        medication['medicine_image_url']
+                ?.toString() ??
+            '';
+
+    final String medicineName =
+        medication['medicine_name']
+                ?.toString() ??
+            'Medicine';
+
+    final String dosage =
+        medication['dosage']
+                ?.toString() ??
             '';
 
     final String instructions =
-        medication['instructions']?.toString() ?? '';
+        medication['instructions']
+                ?.toString() ??
+            '';
+
+    final String medicationType =
+        getMedicationType(medication);
 
     final Color statusColor =
         getDoseStatusColor(status);
 
-    final bool isThisDoseUpdating = 
-          markingScheduleId == scheduleId;
+    final bool isThisDoseUpdating =
+        markingScheduleId == scheduleId;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin:
+          const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(
+              alpha: 0.06,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
             children: [
               buildMedicationImage(
                 imageUrl: imageUrl,
+                medicineName:
+                    medicineName,
+                size: 120,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 15),
               Expanded(
                 child: Column(
                   crossAxisAlignment:
                       CrossAxisAlignment.start,
                   children: [
+                    buildMedicationTypeBadge(
+                      medicationType,
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      medication['medicine_name']
-                              ?.toString() ??
-                          'Medicine',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      medicineName,
+                      style:
+                          const TextStyle(
+                        fontSize: 20,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      medication['dosage']
-                              ?.toString() ??
-                          '',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                    if (instructions.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                    if (dosage.isNotEmpty) ...[
+                      const SizedBox(height: 5),
                       Text(
-                        instructions,
+                        dosage,
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
+                          fontSize: 16,
+                          color:
+                              Colors.grey[800],
+                          fontWeight:
+                              FontWeight.w600,
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    if (instructions
+                        .isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        instructions,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color:
+                              Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         const Icon(
-                          Icons.access_time,
-                          size: 18,
-                          color: Colors.blueGrey,
+                          Icons.alarm,
+                          size: 20,
+                          color:
+                              Colors.blueGrey,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          formatTime(
-                            medication['reminder_time']
-                                    ?.toString() ??
-                                '',
-                          ),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            formatTime(
+                              medication[
+                                          'reminder_time']
+                                      ?.toString() ??
+                                  '',
+                            ),
+                            style:
+                                const TextStyle(
+                              fontSize: 16,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -620,24 +950,30 @@ class _MedicationPageState extends State<MedicationPage> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          if (alreadyTaken || status == 'missed')
+          const SizedBox(height: 15),
+          if (alreadyTaken ||
+              status == 'missed')
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                vertical: 12,
+              padding:
+                  const EdgeInsets.symmetric(
+                vertical: 13,
                 horizontal: 14,
               ),
               decoration: BoxDecoration(
-                color: statusColor.withValues(
+                color:
+                    statusColor.withValues(
                   alpha: 0.12,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                    BorderRadius.circular(13),
               ),
               child: Row(
                 children: [
                   Icon(
-                    getDoseStatusIcon(status),
+                    getDoseStatusIcon(
+                      status,
+                    ),
                     color: statusColor,
                   ),
                   const SizedBox(width: 10),
@@ -649,7 +985,8 @@ class _MedicationPageState extends State<MedicationPage> {
                       ),
                       style: TextStyle(
                         color: statusColor,
-                        fontWeight: FontWeight.bold,
+                        fontWeight:
+                            FontWeight.bold,
                       ),
                     ),
                   ),
@@ -661,34 +998,47 @@ class _MedicationPageState extends State<MedicationPage> {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed:
-                    markingScheduleId != null || scheduleId <= 0
-                    ? null
-                    : () {
-                        markMedicationTaken(scheduleId);
-                      },
+                    markingScheduleId != null ||
+                            scheduleId <= 0
+                        ? null
+                        : () {
+                            markMedicationTaken(
+                              scheduleId,
+                            );
+                          },
                 icon: isThisDoseUpdating
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
+                        child:
+                            CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.check_circle),
+                    : const Icon(
+                        Icons.check_circle,
+                      ),
                 label: Text(
                   isThisDoseUpdating
                       ? 'Updating...'
                       : 'Mark as Taken',
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      Colors.orange,
+                  foregroundColor:
+                      Colors.white,
+                  padding:
+                      const EdgeInsets
+                          .symmetric(
                     vertical: 14,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
+                  shape:
+                      RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(
                       14,
                     ),
                   ),
@@ -712,6 +1062,11 @@ class _MedicationPageState extends State<MedicationPage> {
         medication['medicine_image_url']
             ?.toString();
 
+    final String medicineName =
+        medication['medicine_name']
+                ?.toString() ??
+            'Unnamed Medicine';
+
     final dynamic remaining =
         medication['remaining_quantity'];
 
@@ -726,34 +1081,55 @@ class _MedicationPageState extends State<MedicationPage> {
     final int? remainingQuantity =
         remaining == null
             ? null
-            : int.tryParse(remaining.toString());
+            : int.tryParse(
+                remaining.toString(),
+              );
 
     final bool lowStock =
         remainingQuantity != null &&
-        remainingQuantity <= lowStockThreshold;
+        remainingQuantity <=
+            lowStockThreshold;
+
+    final String dosage =
+        medication['dosage']
+                ?.toString() ??
+            '';
 
     final String instructions =
-        medication['instructions']?.toString() ?? '';
+        medication['instructions']
+                ?.toString() ??
+            '';
+
+    final String medicationType =
+        getMedicationType(medication);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin:
+          const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius:
+            BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(
+              alpha: 0.05,
+            ),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           buildMedicationImage(
             imageUrl: imageUrl,
+            medicineName:
+                medicineName,
+            size: 108,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -767,71 +1143,99 @@ class _MedicationPageState extends State<MedicationPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        medication['medicine_name']
-                                ?.toString() ??
-                            'Unnamed Medicine',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        medicineName,
+                        style:
+                            const TextStyle(
+                          fontSize: 19,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
                     ),
                     PopupMenuButton<String>(
-                      tooltip: 'Medication options',
-                      onSelected: (value) {
+                      tooltip:
+                          'Medication options',
+                      onSelected:
+                          (String value) {
                         if (value == 'edit') {
                           openEditMedicationPage(
                             medication,
                           );
-                        } else if (value == 'remove') {
+                        } else if (value ==
+                            'remove') {
                           confirmArchiveMedication(
                             medication,
                           );
                         }
                       },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem<String>(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit_outlined),
-                              SizedBox(width: 10),
-                              Text('Edit Medication'),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem<String>(
-                          value: 'remove',
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Remove Medication',
-                                style: TextStyle(
-                                  color: Colors.red,
+                      itemBuilder:
+                          (
+                        BuildContext context,
+                      ) {
+                        return const [
+                          PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons
+                                      .edit_outlined,
                                 ),
-                              ),
-                            ],
+                                SizedBox(
+                                  width: 10,
+                                ),
+                                Text(
+                                  'Edit Medication',
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          PopupMenuItem<String>(
+                            value: 'remove',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons
+                                      .delete_outline,
+                                  color:
+                                      Colors.red,
+                                ),
+                                SizedBox(
+                                  width: 10,
+                                ),
+                                Text(
+                                  'Remove Medication',
+                                  style:
+                                      TextStyle(
+                                    color:
+                                        Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ];
+                      },
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  medication['dosage']?.toString() ??
-                      '',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey[700],
-                  ),
+                buildMedicationTypeBadge(
+                  medicationType,
                 ),
-                if (instructions.isNotEmpty) ...[
+                if (dosage.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Text(
+                    dosage,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey[700],
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (instructions
+                    .isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
                     instructions,
@@ -845,37 +1249,57 @@ class _MedicationPageState extends State<MedicationPage> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
-                  children: schedules.map<Widget>(
+                  children:
+                      schedules.map<Widget>(
                     (dynamic schedule) {
                       if (schedule
-                          is! Map<String, dynamic>) {
-                        return const SizedBox.shrink();
+                          is! Map<String,
+                              dynamic>) {
+                        return const SizedBox
+                            .shrink();
                       }
 
+                      final String label =
+                          schedule['time_label']
+                                  ?.toString() ??
+                              '';
+
+                      final String time =
+                          formatTime(
+                        schedule['reminder_time']
+                                ?.toString() ??
+                            '',
+                      );
+
                       return Chip(
-                        avatar: const Icon(
-                          Icons.access_time,
-                          size: 16,
+                        avatar: Icon(
+                          label == 'PM'
+                              ? Icons
+                                  .nightlight_outlined
+                              : Icons
+                                  .wb_sunny_outlined,
+                          size: 17,
                         ),
                         label: Text(
-                          formatTime(
-                            schedule['reminder_time']
-                                    ?.toString() ??
-                                '',
-                          ),
+                          label.isEmpty
+                              ? time
+                              : '$label • $time',
                         ),
                       );
                     },
                   ).toList(),
                 ),
-                if (remainingQuantity != null) ...[
+                if (remainingQuantity !=
+                    null) ...[
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Icon(
                         lowStock
-                            ? Icons.warning_amber
-                            : Icons.inventory_2_outlined,
+                            ? Icons
+                                .warning_amber
+                            : Icons
+                                .inventory_2_outlined,
                         size: 18,
                         color: lowStock
                             ? Colors.red
@@ -886,14 +1310,16 @@ class _MedicationPageState extends State<MedicationPage> {
                         child: Text(
                           lowStock
                               ? 'Low stock: '
-                                  '$remainingQuantity remaining'
+                                  '$remainingQuantity '
+                                  'remaining'
                               : 'Remaining: '
                                   '$remainingQuantity',
                           style: TextStyle(
                             color: lowStock
                                 ? Colors.red
                                 : Colors.grey[700],
-                            fontWeight: FontWeight.w600,
+                            fontWeight:
+                                FontWeight.w600,
                           ),
                         ),
                       ),
@@ -908,10 +1334,75 @@ class _MedicationPageState extends State<MedicationPage> {
     );
   }
 
+  Widget buildHistoryCard() {
+    return InkWell(
+      borderRadius:
+          BorderRadius.circular(18),
+      onTap: openMedicationHistory,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius:
+              BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: 0.05,
+              ),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.history,
+              color: Colors.blueGrey,
+              size: 32,
+            ),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Medication History',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'View previous medication records.',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+              color: Colors.grey,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor:
+          const Color(0xFFF5F6FA),
       appBar: AppBar(
         title: const Text(
           'Medication',
@@ -924,128 +1415,196 @@ class _MedicationPageState extends State<MedicationPage> {
         elevation: 0,
         actions: [
           IconButton(
-            onPressed:
-                isLoading ? null : loadMedicationPage,
-            icon: const Icon(Icons.refresh),
+            onPressed: isLoading
+                ? null
+                : loadMedicationPage,
+            icon: const Icon(
+              Icons.refresh,
+            ),
           ),
         ],
       ),
       floatingActionButton:
           FloatingActionButton.extended(
         onPressed: openAddMedicationPage,
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
-        label: const Text('Add Medicine'),
+        label:
+            const Text('Add Medicine'),
       ),
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child:
+                  CircularProgressIndicator(),
             )
           : errorMessage.isNotEmpty
               ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding:
+                        const EdgeInsets.all(
+                      20,
+                    ),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisSize:
+                          MainAxisSize.min,
                       children: [
                         const Icon(
                           Icons.error_outline,
                           color: Colors.red,
                           size: 54,
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(
+                          height: 14,
+                        ),
                         Text(
                           errorMessage,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          textAlign:
+                              TextAlign.center,
+                          style:
+                              const TextStyle(
                             color: Colors.red,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(
+                          height: 16,
+                        ),
                         ElevatedButton.icon(
-                          onPressed: loadMedicationPage,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
+                          onPressed:
+                              loadMedicationPage,
+                          icon: const Icon(
+                            Icons.refresh,
+                          ),
+                          label:
+                              const Text(
+                            'Try Again',
+                          ),
                         ),
                       ],
                     ),
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: loadMedicationPage,
+                  onRefresh:
+                      loadMedicationPage,
                   child: ListView(
                     physics:
                         const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
+                    padding:
+                        const EdgeInsets.all(
+                      16,
+                    ),
                     children: [
                       Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
+                        width:
+                            double.infinity,
+                        padding:
+                            const EdgeInsets
+                                .all(
+                          18,
+                        ),
+                        decoration:
+                            BoxDecoration(
                           gradient:
                               const LinearGradient(
                             colors: [
-                              Color(0xFFFF9800),
-                              Color(0xFFFFB74D),
+                              Color(
+                                0xFFFF9800,
+                              ),
+                              Color(
+                                0xFFFFB74D,
+                              ),
                             ],
                           ),
                           borderRadius:
-                              BorderRadius.circular(20),
+                              BorderRadius
+                                  .circular(
+                            20,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                              CrossAxisAlignment
+                                  .start,
                           children: [
                             const Text(
                               'Today’s Medication',
                               style: TextStyle(
-                                color: Colors.white,
+                                color:
+                                    Colors.white,
                                 fontSize: 21,
                                 fontWeight:
-                                    FontWeight.bold,
+                                    FontWeight
+                                        .bold,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(
+                              height: 6,
+                            ),
                             Text(
                               getTodayProgressText(),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style:
+                                  const TextStyle(
+                                color:
+                                    Colors.white,
                                 fontSize: 16,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      if (todayMedications.isEmpty)
+                      const SizedBox(
+                        height: 18,
+                      ),
+                      if (todayMedications
+                          .isEmpty)
                         Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius:
-                                BorderRadius.circular(18),
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            20,
                           ),
-                          child: const Column(
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
+                            borderRadius:
+                                BorderRadius
+                                    .circular(
+                              18,
+                            ),
+                          ),
+                          child:
+                              const Column(
                             children: [
                               Icon(
-                                Icons.event_available,
+                                Icons
+                                    .event_available,
                                 size: 46,
-                                color: Colors.grey,
+                                color:
+                                    Colors.grey,
                               ),
-                              SizedBox(height: 10),
+                              SizedBox(
+                                height: 10,
+                              ),
                               Text(
-                                'No medication scheduled '
-                                'for today.',
-                                textAlign: TextAlign.center,
+                                'No medication scheduled for today.',
+                                textAlign:
+                                    TextAlign
+                                        .center,
                               ),
                             ],
                           ),
                         )
                       else
-                        ...todayMedications.map(
+                        ...todayMedications
+                            .map(
                           (dynamic item) {
                             if (item
-                                is! Map<String, dynamic>) {
+                                is! Map<String,
+                                    dynamic>) {
                               return const SizedBox
                                   .shrink();
                             }
@@ -1055,48 +1614,78 @@ class _MedicationPageState extends State<MedicationPage> {
                             );
                           },
                         ),
-                      const SizedBox(height: 22),
+                      const SizedBox(
+                        height: 22,
+                      ),
                       const Text(
                         'All Medicines',
                         style: TextStyle(
                           fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                              FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(
+                        height: 12,
+                      ),
                       if (medications.isEmpty)
                         Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                          width:
+                              double.infinity,
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            24,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color:
+                                Colors.white,
                             borderRadius:
-                                BorderRadius.circular(18),
+                                BorderRadius
+                                    .circular(
+                              18,
+                            ),
                           ),
                           child: Column(
                             children: [
                               Icon(
-                                Icons.medication_outlined,
+                                Icons
+                                    .medication_outlined,
                                 size: 64,
-                                color: Colors.grey[400],
+                                color:
+                                    Colors.grey[
+                                        400],
                               ),
-                              const SizedBox(height: 14),
+                              const SizedBox(
+                                height: 14,
+                              ),
                               const Text(
                                 'No medication added yet.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
+                                textAlign:
+                                    TextAlign
+                                        .center,
+                                style:
+                                    TextStyle(
                                   fontSize: 18,
                                   fontWeight:
-                                      FontWeight.bold,
+                                      FontWeight
+                                          .bold,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(
+                                height: 8,
+                              ),
                               Text(
-                                'Tap “Add Medicine” to '
-                                'create the first reminder.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
+                                'Tap “Add Medicine” to create the first reminder.',
+                                textAlign:
+                                    TextAlign
+                                        .center,
+                                style:
+                                    TextStyle(
+                                  color:
+                                      Colors.grey[
+                                          600],
                                 ),
                               ),
                             ],
@@ -1106,7 +1695,8 @@ class _MedicationPageState extends State<MedicationPage> {
                         ...medications.map(
                           (dynamic item) {
                             if (item
-                                is! Map<String, dynamic>) {
+                                is! Map<String,
+                                    dynamic>) {
                               return const SizedBox
                                   .shrink();
                             }
@@ -1116,65 +1706,13 @@ class _MedicationPageState extends State<MedicationPage> {
                             );
                           },
                         ),
-                      const SizedBox(height: 20),
-
-                      InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: openMedicationHistory,
-                        child:  Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(
-                                Icons.history,
-                                color: Colors.blueGrey,
-                                size: 32,
-                              ),
-                              SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Medication History',
-                                      style: TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      'View history of all medication taken.',
-                                      style: TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                Icons.arrow_forward_ios,
-                                size: 18,
-                                color: Colors.grey,
-                              ),
-                            ],
-                          ),
-                        ),
+                      const SizedBox(
+                        height: 20,
                       ),
-
-                      const  SizedBox(height: 90),
+                      buildHistoryCard(),
+                      const SizedBox(
+                        height: 90,
+                      ),
                     ],
                   ),
                 ),

@@ -15,47 +15,58 @@ class AddMedicationPage extends StatefulWidget {
     this.medication,
   });
 
-  bool get isEditMode => medication != null;
-
   @override
   State<AddMedicationPage> createState() =>
       _AddMedicationPageState();
 }
 
-class _AddMedicationPageState
-    extends State<AddMedicationPage> {
-  final _formKey = GlobalKey<FormState>();
+class _AddMedicationPageState extends State<AddMedicationPage> {
+  final GlobalKey<FormState> _formKey =
+      GlobalKey<FormState>();
+
   final ImagePicker _imagePicker = ImagePicker();
 
   final TextEditingController medicineNameController =
-      TextEditingController();
+      TextEditingController(
+    text: 'Prescribed Medication',
+  );
 
-  final TextEditingController dosageController =
-      TextEditingController();
-
-  final TextEditingController instructionsController =
+  final TextEditingController customInstructionController =
       TextEditingController();
 
   final TextEditingController quantityController =
       TextEditingController();
 
   final TextEditingController lowStockController =
-      TextEditingController(text: '5');
+      TextEditingController(
+    text: '5',
+  );
 
-  final String addMedicationUrl =
+  static const String addMedicationUrl =
       'http://elderlym.atspace.cc/Medication/add_medication.php';
 
-  final String updateMedicationUrl =
+  static const String updateMedicationUrl =
       'http://elderlym.atspace.cc/Medication/update_medication.php';
 
   XFile? selectedImage;
 
+  int dosageQuantity = 1;
+
+  String selectedInstruction = 'After Food';
+
+  String medicationType = 'long_term';
+
+  bool amReminderEnabled = true;
+  bool pmReminderEnabled = false;
+
+  TimeOfDay amReminderTime =
+      const TimeOfDay(hour: 8, minute: 0);
+
+  TimeOfDay pmReminderTime =
+      const TimeOfDay(hour: 20, minute: 0);
+
   DateTime startDate = DateTime.now();
   DateTime? endDate;
-
-  List<TimeOfDay> reminderTimes = [
-    const TimeOfDay(hour: 8, minute: 0),
-  ];
 
   String repeatType = 'daily';
 
@@ -75,156 +86,277 @@ class _AddMedicationPageState
 
   bool get isEditMode => widget.medication != null;
 
+  String get dosageText {
+    if (dosageQuantity == 1) {
+      return '1 tablet';
+    }
+
+    return '$dosageQuantity tablets';
+  }
+
+  String get finalInstruction {
+    if (selectedInstruction == 'Other') {
+      return customInstructionController.text.trim();
+    }
+
+    return selectedInstruction;
+  }
+
+  String? get existingImageUrl {
+    return widget.medication?['medicine_image_url']
+        ?.toString();
+  }
+
   @override
   void initState() {
     super.initState();
 
     if (isEditMode) {
-      _fillExistingMedication();
+      fillExistingMedication();
     }
   }
 
-  void _fillExistingMedication() {
-    final medication = widget.medication!;
+  void fillExistingMedication() {
+    final Map<String, dynamic> medication =
+        widget.medication!;
 
     medicineNameController.text =
-        medication['medicine_name']?.toString() ?? '';
-    dosageController.text =
-        medication['dosage']?.toString() ?? '';
-    instructionsController.text =
-        medication['instructions']?.toString() ?? '';
-    quantityController.text =
-        medication['remaining_quantity']?.toString() ?? '';
-    lowStockController.text =
-        medication['low_stock_threshold']?.toString() ?? '5';
+        medication['medicine_name']?.toString() ??
+            'Prescribed Medication';
 
-    final parsedStartDate = DateTime.tryParse(
+    dosageQuantity = parseDosageQuantity(
+      medication['dosage_quantity']?.toString() ??
+          medication['dosage']?.toString() ??
+          '',
+    );
+
+    final String existingInstruction =
+        medication['instructions']?.toString() ?? '';
+
+    if (existingInstruction == 'Before Food' ||
+        existingInstruction == 'After Food') {
+      selectedInstruction = existingInstruction;
+    } else if (existingInstruction.isNotEmpty) {
+      selectedInstruction = 'Other';
+      customInstructionController.text =
+          existingInstruction;
+    }
+
+    medicationType =
+        medication['medication_type']?.toString() ??
+            'long_term';
+
+    quantityController.text =
+        medication['remaining_quantity']?.toString() ??
+            '';
+
+    lowStockController.text =
+        medication['low_stock_threshold']?.toString() ??
+            '5';
+
+    final DateTime? existingStartDate =
+        DateTime.tryParse(
       medication['start_date']?.toString() ?? '',
     );
 
-    if (parsedStartDate != null) {
-      startDate = parsedStartDate;
+    if (existingStartDate != null) {
+      startDate = existingStartDate;
     }
 
-    final endDateText =
+    final String endDateText =
         medication['end_date']?.toString() ?? '';
 
     if (endDateText.isNotEmpty) {
       endDate = DateTime.tryParse(endDateText);
     }
 
-    final schedules = medication['schedules'];
+    loadExistingSchedules(
+      medication['schedules'],
+    );
+  }
 
-    if (schedules is List && schedules.isNotEmpty) {
-      final loadedTimes = <TimeOfDay>[];
+  int parseDosageQuantity(String dosage) {
+    final RegExpMatch? match =
+        RegExp(r'\d+').firstMatch(dosage);
 
-      for (final schedule in schedules) {
-        if (schedule is! Map<String, dynamic>) continue;
+    final int quantity =
+        int.tryParse(match?.group(0) ?? '') ?? 1;
 
-        final timeText =
-            schedule['reminder_time']?.toString() ?? '';
+    return quantity < 1 ? 1 : quantity;
+  }
 
-        final parts = timeText.split(':');
+  void loadExistingSchedules(dynamic schedulesData) {
+    if (schedulesData is! List ||
+        schedulesData.isEmpty) {
+      return;
+    }
 
-        if (parts.length >= 2) {
-          final hour = int.tryParse(parts[0]);
-          final minute = int.tryParse(parts[1]);
+    amReminderEnabled = false;
+    pmReminderEnabled = false;
 
-          if (hour != null && minute != null) {
-            loadedTimes.add(
-              TimeOfDay(hour: hour, minute: minute),
-            );
-          }
-        }
+    for (final dynamic item in schedulesData) {
+      if (item is! Map<String, dynamic>) {
+        continue;
       }
 
-      if (loadedTimes.isNotEmpty) {
-        reminderTimes = loadedTimes;
+      final TimeOfDay? time = parseTime(
+        item['reminder_time']?.toString() ?? '',
+      );
+
+      if (time == null) {
+        continue;
       }
 
-      final firstSchedule = schedules.first;
-
-      if (firstSchedule is Map<String, dynamic>) {
-        repeatType =
-            firstSchedule['repeat_type']?.toString() ?? 'daily';
-
-        final repeatDaysText =
-            firstSchedule['repeat_days']?.toString() ?? '';
-
-        if (repeatDaysText.isNotEmpty) {
-          selectedDays.addAll(
-            repeatDaysText
-                .split(',')
-                .map((day) => day.trim())
-                .where((day) => day.isNotEmpty),
-          );
-        }
+      if (time.hour < 12 &&
+          !amReminderEnabled) {
+        amReminderEnabled = true;
+        amReminderTime = time;
+      } else if (time.hour >= 12 &&
+          !pmReminderEnabled) {
+        pmReminderEnabled = true;
+        pmReminderTime = time;
       }
     }
+
+    final dynamic firstSchedule =
+        schedulesData.first;
+
+    if (firstSchedule is Map<String, dynamic>) {
+      repeatType =
+          firstSchedule['repeat_type']?.toString() ??
+              'daily';
+
+      final String repeatDaysText =
+          firstSchedule['repeat_days']?.toString() ??
+              '';
+
+      selectedDays.clear();
+
+      selectedDays.addAll(
+        repeatDaysText
+            .split(',')
+            .map((String day) => day.trim())
+            .where(
+              (String day) => day.isNotEmpty,
+            ),
+      );
+    }
+
+    if (!amReminderEnabled &&
+        !pmReminderEnabled) {
+      amReminderEnabled = true;
+    }
+  }
+
+  TimeOfDay? parseTime(String value) {
+    final List<String> parts = value.split(':');
+
+    if (parts.length < 2) {
+      return null;
+    }
+
+    final int? hour =
+        int.tryParse(parts[0]);
+
+    final int? minute =
+        int.tryParse(parts[1]);
+
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
+
+    return TimeOfDay(
+      hour: hour,
+      minute: minute,
+    );
   }
 
   @override
   void dispose() {
     medicineNameController.dispose();
-    dosageController.dispose();
-    instructionsController.dispose();
+    customInstructionController.dispose();
     quantityController.dispose();
     lowStockController.dispose();
+
     super.dispose();
   }
 
   String formatDateForServer(DateTime date) {
-    final year = date.year.toString().padLeft(4, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
+    final String year =
+        date.year.toString().padLeft(4, '0');
+
+    final String month =
+        date.month.toString().padLeft(2, '0');
+
+    final String day =
+        date.day.toString().padLeft(2, '0');
 
     return '$year-$month-$day';
   }
 
   String formatTimeForServer(TimeOfDay time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
+    final String hour =
+        time.hour.toString().padLeft(2, '0');
+
+    final String minute =
+        time.minute.toString().padLeft(2, '0');
 
     return '$hour:$minute';
   }
 
-  String getTimeLabel(TimeOfDay time) {
-    if (time.hour < 12) {
-      return 'Morning';
+  void showMessage(String message) {
+    if (!mounted) {
+      return;
     }
 
-    if (time.hour < 17) {
-      return 'Afternoon';
-    }
-
-    if (time.hour < 21) {
-      return 'Evening';
-    }
-
-    return 'Night';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+      ),
+    );
   }
 
   Future<void> showImageOptions() async {
-    await showModalBottomSheet(
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (bottomSheetContext) {
+      builder: (BuildContext bottomSheetContext) {
         return SafeArea(
           child: Wrap(
             children: [
               ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text('Take Photo'),
+                leading:
+                    const Icon(Icons.camera_alt),
+                title:
+                    const Text('Take Photo'),
                 onTap: () {
-                  Navigator.pop(bottomSheetContext);
-                  selectImage(ImageSource.camera);
+                  Navigator.pop(
+                    bottomSheetContext,
+                  );
+
+                  selectImage(
+                    ImageSource.camera,
+                  );
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Choose from Gallery'),
+                leading:
+                    const Icon(Icons.photo_library),
+                title: const Text(
+                  'Choose from Gallery',
+                ),
                 onTap: () {
-                  Navigator.pop(bottomSheetContext);
-                  selectImage(ImageSource.gallery);
+                  Navigator.pop(
+                    bottomSheetContext,
+                  );
+
+                  selectImage(
+                    ImageSource.gallery,
+                  );
                 },
               ),
               if (selectedImage != null)
@@ -234,11 +366,15 @@ class _AddMedicationPageState
                     color: Colors.red,
                   ),
                   title: const Text(
-                    'Remove Photo',
-                    style: TextStyle(color: Colors.red),
+                    'Remove New Photo',
+                    style: TextStyle(
+                      color: Colors.red,
+                    ),
                   ),
                   onTap: () {
-                    Navigator.pop(bottomSheetContext);
+                    Navigator.pop(
+                      bottomSheetContext,
+                    );
 
                     setState(() {
                       selectedImage = null;
@@ -252,12 +388,15 @@ class _AddMedicationPageState
     );
   }
 
-  Future<void> selectImage(ImageSource source) async {
+  Future<void> selectImage(
+    ImageSource source,
+  ) async {
     try {
-      final XFile? image = await _imagePicker.pickImage(
+      final XFile? image =
+          await _imagePicker.pickImage(
         source: source,
-        imageQuality: 75,
-        maxWidth: 1200,
+        imageQuality: 82,
+        maxWidth: 1600,
       );
 
       if (image == null || !mounted) {
@@ -267,117 +406,62 @@ class _AddMedicationPageState
       setState(() {
         selectedImage = image;
       });
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Unable to select image: $e'),
-        ),
+    } catch (error) {
+      showMessage(
+        'Unable to select image: $error',
       );
     }
   }
 
-  Future<void> addReminderTime() async {
-    final selectedTime = await showTimePicker(
+  Future<void> selectReminderTime({
+    required bool isAm,
+  }) async {
+    final TimeOfDay selectedInitialTime =
+        isAm
+            ? amReminderTime
+            : pmReminderTime;
+
+    final TimeOfDay? selectedTime =
+        await showTimePicker(
       context: context,
-      initialTime: const TimeOfDay(
-        hour: 20,
-        minute: 0,
-      ),
+      initialTime: selectedInitialTime,
+      helpText: isAm
+          ? 'Select AM Reminder Time'
+          : 'Select PM Reminder Time',
     );
 
     if (selectedTime == null) {
       return;
     }
 
-    final duplicateExists = reminderTimes.any(
-      (time) =>
-          time.hour == selectedTime.hour &&
-          time.minute == selectedTime.minute,
-    );
+    if (isAm && selectedTime.hour >= 12) {
+      showMessage(
+        'Please select a morning AM time.',
+      );
 
-    if (duplicateExists) {
-      if (!mounted) return;
+      return;
+    }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'This reminder time has already been added.',
-          ),
-        ),
+    if (!isAm && selectedTime.hour < 12) {
+      showMessage(
+        'Please select an afternoon or evening PM time.',
       );
 
       return;
     }
 
     setState(() {
-      reminderTimes.add(selectedTime);
-
-      reminderTimes.sort(
-        (first, second) {
-          final firstMinutes =
-              first.hour * 60 + first.minute;
-
-          final secondMinutes =
-              second.hour * 60 + second.minute;
-
-          return firstMinutes.compareTo(secondMinutes);
-        },
-      );
-    });
-  }
-
-  Future<void> editReminderTime(int index) async {
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: reminderTimes[index],
-    );
-
-    if (selectedTime == null) {
-      return;
-    }
-
-    final duplicateExists = reminderTimes.asMap().entries.any(
-      (entry) =>
-          entry.key != index &&
-          entry.value.hour == selectedTime.hour &&
-          entry.value.minute == selectedTime.minute,
-    );
-
-    if (duplicateExists) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'This reminder time has already been added.',
-          ),
-        ),
-      );
-
-      return;
-    }
-
-    setState(() {
-      reminderTimes[index] = selectedTime;
-
-      reminderTimes.sort(
-        (first, second) {
-          final firstMinutes =
-              first.hour * 60 + first.minute;
-
-          final secondMinutes =
-              second.hour * 60 + second.minute;
-
-          return firstMinutes.compareTo(secondMinutes);
-        },
-      );
+      if (isAm) {
+        amReminderTime = selectedTime;
+      } else {
+        pmReminderTime = selectedTime;
+      }
     });
   }
 
   Future<void> selectStartDate() async {
-    final selectedDate = await showDatePicker(
+    final DateTime? selectedDate =
+        await showDatePicker(
       context: context,
       initialDate: startDate,
       firstDate: DateTime.now().subtract(
@@ -403,7 +487,8 @@ class _AddMedicationPageState
   }
 
   Future<void> selectEndDate() async {
-    final selectedDate = await showDatePicker(
+    final DateTime? selectedDate =
+        await showDatePicker(
       context: context,
       initialDate: endDate ?? startDate,
       firstDate: startDate,
@@ -421,18 +506,59 @@ class _AddMedicationPageState
     });
   }
 
+  List<Map<String, dynamic>> buildSchedules() {
+    final List<Map<String, dynamic>> schedules =
+        [];
+
+    final String repeatDays =
+        repeatType == 'selected_days'
+            ? weekDays
+                .where(
+                  selectedDays.contains,
+                )
+                .join(',')
+            : '';
+
+    if (amReminderEnabled) {
+      schedules.add({
+        'reminder_time':
+            formatTimeForServer(
+          amReminderTime,
+        ),
+        'time_label': 'AM',
+        'repeat_type': repeatType,
+        'repeat_days': repeatDays,
+        'early_window_minutes': 30,
+        'late_window_minutes': 60,
+      });
+    }
+
+    if (pmReminderEnabled) {
+      schedules.add({
+        'reminder_time':
+            formatTimeForServer(
+          pmReminderTime,
+        ),
+        'time_label': 'PM',
+        'repeat_type': repeatType,
+        'repeat_days': repeatDays,
+        'early_window_minutes': 30,
+        'late_window_minutes': 60,
+      });
+    }
+
+    return schedules;
+  }
+
   Future<void> saveMedication() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    if (reminderTimes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please add at least one reminder time.',
-          ),
-        ),
+    if (!amReminderEnabled &&
+        !pmReminderEnabled) {
+      showMessage(
+        'Please enable at least one reminder.',
       );
 
       return;
@@ -440,12 +566,28 @@ class _AddMedicationPageState
 
     if (repeatType == 'selected_days' &&
         selectedDays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please select at least one repeat day.',
-          ),
-        ),
+      showMessage(
+        'Please select at least one repeat day.',
+      );
+
+      return;
+    }
+
+    if (medicationType == 'short_term' &&
+        endDate == null) {
+      showMessage(
+        'Please select an end date for an acute medication.',
+      );
+
+      return;
+    }
+
+    if (selectedInstruction == 'Other' &&
+        customInstructionController.text
+            .trim()
+            .isEmpty) {
+      showMessage(
+        'Please enter the medication instructions.',
       );
 
       return;
@@ -456,7 +598,8 @@ class _AddMedicationPageState
     });
 
     try {
-      final request = http.MultipartRequest(
+      final http.MultipartRequest request =
+          http.MultipartRequest(
         'POST',
         Uri.parse(
           isEditMode
@@ -465,42 +608,43 @@ class _AddMedicationPageState
         ),
       );
 
-      final schedules = reminderTimes.map((time) {
-        return {
-          'reminder_time': formatTimeForServer(time),
-          'time_label': getTimeLabel(time),
-          'repeat_type': repeatType,
-          'repeat_days':
-              repeatType == 'selected_days'
-                  ? weekDays
-                      .where(selectedDays.contains)
-                      .join(',')
-                  : '',
-          'early_window_minutes': 30,
-          'late_window_minutes': 60,
-        };
-      }).toList();
-
       request.fields.addAll({
         if (isEditMode)
           'medication_id':
-              widget.medication!['medication_id'].toString(),
-        'elderly_user_id': widget.userId.toString(),
+              widget.medication!['medication_id']
+                  .toString(),
+
+        'elderly_user_id':
+            widget.userId.toString(),
+
         'medicine_name':
             medicineNameController.text.trim(),
-        'dosage': dosageController.text.trim(),
-        'instructions':
-            instructionsController.text.trim(),
+
+        'dosage': dosageText,
+
+        'dosage_quantity':
+            dosageQuantity.toString(),
+
+        'instructions': finalInstruction,
+
+        'medication_type': medicationType,
+
         'start_date':
             formatDateForServer(startDate),
+
         'end_date': endDate == null
             ? ''
             : formatDateForServer(endDate!),
+
         'remaining_quantity':
             quantityController.text.trim(),
+
         'low_stock_threshold':
             lowStockController.text.trim(),
-        'schedules': jsonEncode(schedules),
+
+        'schedules': jsonEncode(
+          buildSchedules(),
+        ),
       });
 
       if (selectedImage != null) {
@@ -512,58 +656,59 @@ class _AddMedicationPageState
         );
       }
 
-      final streamedResponse = await request.send();
+      final http.StreamedResponse streamedResponse =
+          await request.send().timeout(
+        const Duration(seconds: 30),
+      );
 
-      final response = await http.Response.fromStream(
+      final http.Response response =
+          await http.Response.fromStream(
         streamedResponse,
       );
 
-      final dynamic decoded = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(
+          'Server returned status '
+          '${response.statusCode}.',
+        );
+      }
 
-      if (!mounted) return;
+      final dynamic decoded =
+          jsonDecode(response.body);
+
+      if (!mounted) {
+        return;
+      }
 
       if (decoded is Map<String, dynamic> &&
           decoded['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              decoded['message'] ??
-                  (isEditMode
-                      ? 'Medication updated successfully.'
-                      : 'Medication added successfully.'),
-            ),
-          ),
+        showMessage(
+          decoded['message']?.toString() ??
+              (isEditMode
+                  ? 'Medication updated successfully.'
+                  : 'Medication added successfully.'),
         );
 
-        Navigator.pop(context, true);
-      } else {
-        final message =
-            decoded is Map<String, dynamic>
-                ? decoded['message']?.toString()
-                : null;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              message ??
-                  (isEditMode
-                      ? 'Unable to update medication.'
-                      : 'Unable to add medication.'),
-            ),
-          ),
+        Navigator.pop(
+          context,
+          true,
         );
+
+        return;
       }
-    } catch (e) {
-      if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditMode
-                ? 'Error updating medication: $e'
-                : 'Error adding medication: $e',
-          ),
-        ),
+      final String message =
+          decoded is Map<String, dynamic>
+              ? decoded['message']?.toString() ??
+                  'Unable to save medication.'
+              : 'Invalid response from server.';
+
+      showMessage(message);
+    } catch (error) {
+      showMessage(
+        isEditMode
+            ? 'Error updating medication: $error'
+            : 'Error adding medication: $error',
       );
     } finally {
       if (mounted) {
@@ -577,13 +722,13 @@ class _AddMedicationPageState
   Widget sectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(
-        top: 10,
+        top: 16,
         bottom: 10,
       ),
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -602,8 +747,389 @@ class _AddMedicationPageState
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius:
+            BorderRadius.circular(16),
         borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(16),
+        borderSide: const BorderSide(
+          color: Colors.orange,
+          width: 1.5,
+        ),
+      ),
+    );
+  }
+
+  Widget buildPhotoPlaceholder() {
+    return Container(
+      color: const Color(0xFFFFF7ED),
+      child: Column(
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.add_a_photo_outlined,
+            size: 72,
+            color: Colors.orange[700],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Add Medicine Photo',
+            style: TextStyle(
+              fontSize: 21,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 20,
+            ),
+            child: Text(
+              'Take a clear photo so the elderly user can recognise the medicine.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildPhotoArea() {
+    Widget imageContent;
+
+    if (selectedImage != null) {
+      imageContent = Image.file(
+        File(selectedImage!.path),
+        fit: BoxFit.cover,
+      );
+    } else if (existingImageUrl != null &&
+        existingImageUrl!.isNotEmpty) {
+      imageContent = Image.network(
+        existingImageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (
+          BuildContext context,
+          Object error,
+          StackTrace? stackTrace,
+        ) {
+          return buildPhotoPlaceholder();
+        },
+      );
+    } else {
+      imageContent = buildPhotoPlaceholder();
+    }
+
+    return GestureDetector(
+      onTap: showImageOptions,
+      child: Container(
+        height: 280,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius:
+              BorderRadius.circular(22),
+          border: Border.all(
+            color: Colors.orange.withValues(
+              alpha: 0.5,
+            ),
+            width: 1.5,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            imageContent,
+            Align(
+              alignment:
+                  Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(
+                  vertical: 11,
+                  horizontal: 12,
+                ),
+                color: Colors.black.withValues(
+                  alpha: 0.58,
+                ),
+                child: const Text(
+                  'Tap to take or change photo',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight:
+                        FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildDosageStepper() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.local_pharmacy_outlined,
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Dosage',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight:
+                    FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton.filledTonal(
+            tooltip: 'Reduce dosage',
+            onPressed: dosageQuantity <= 1
+                ? null
+                : () {
+                    setState(() {
+                      dosageQuantity--;
+                    });
+                  },
+            icon: const Icon(Icons.remove),
+          ),
+          SizedBox(
+            width: 110,
+            child: Text(
+              dosageText,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton.filled(
+            tooltip: 'Increase dosage',
+            onPressed: () {
+              setState(() {
+                dosageQuantity++;
+              });
+            },
+            icon: const Icon(Icons.add),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildInstructionOption({
+    required String value,
+    required IconData icon,
+  }) {
+    final bool selected =
+        selectedInstruction == value;
+
+    return ChoiceChip(
+      selected: selected,
+      avatar: Icon(
+        icon,
+        size: 19,
+        color: selected
+            ? Colors.white
+            : Colors.orange[800],
+      ),
+      label: Text(value),
+      labelStyle: TextStyle(
+        color: selected
+            ? Colors.white
+            : Colors.black87,
+        fontWeight: FontWeight.w600,
+      ),
+      selectedColor: Colors.orange,
+      onSelected: (_) {
+        setState(() {
+          selectedInstruction = value;
+        });
+      },
+    );
+  }
+
+  Widget buildReminderCard({
+    required String period,
+    required bool enabled,
+    required TimeOfDay time,
+    required ValueChanged<bool> onChanged,
+    required VoidCallback onEditTime,
+  }) {
+    final bool isMorning =
+        period == 'AM';
+
+    return Container(
+      margin:
+          const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(17),
+        border: Border.all(
+          color: enabled
+              ? Colors.orange.withValues(
+                  alpha: 0.55,
+                )
+              : Colors.grey.withValues(
+                  alpha: 0.2,
+                ),
+        ),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: enabled,
+            onChanged: onChanged,
+            secondary: Icon(
+              isMorning
+                  ? Icons.wb_sunny_outlined
+                  : Icons.nightlight_outlined,
+              color: Colors.orange,
+              size: 30,
+            ),
+            title: Text(
+              '$period Medication',
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Text(
+              enabled
+                  ? 'Reminder is enabled'
+                  : 'Reminder is disabled',
+            ),
+          ),
+          if (enabled) ...[
+            const Divider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.alarm,
+                color: Colors.blueGrey,
+              ),
+              title: const Text(
+                'Exact Reminder Time',
+              ),
+              subtitle: Text(
+                time.format(context),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              trailing:
+                  const Icon(Icons.edit),
+              onTap: onEditTime,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget buildMedicationTypeOption({
+    required String value,
+    required String title,
+    required String description,
+    required IconData icon,
+  }) {
+    final bool selected =
+        medicationType == value;
+
+    return Expanded(
+      child: InkWell(
+        borderRadius:
+            BorderRadius.circular(16),
+        onTap: () {
+          setState(() {
+            medicationType = value;
+
+            if (value == 'long_term') {
+              endDate = null;
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration:
+              const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: selected
+                ? Colors.orange.withValues(
+                    alpha: 0.14,
+                  )
+                : Colors.white,
+            borderRadius:
+                BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? Colors.orange
+                  : Colors.grey.withValues(
+                      alpha: 0.25,
+                    ),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                color: selected
+                    ? Colors.orange[800]
+                    : Colors.grey[700],
+                size: 30,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight:
+                      FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                description,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[700],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -611,10 +1137,13 @@ class _AddMedicationPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor:
+          const Color(0xFFF5F6FA),
       appBar: AppBar(
         title: Text(
-          isEditMode ? 'Edit Medicine' : 'Add Medicine',
+          isEditMode
+              ? 'Edit Medicine'
+              : 'Add Medicine',
           style: const TextStyle(
             fontWeight: FontWeight.bold,
           ),
@@ -628,93 +1157,24 @@ class _AddMedicationPageState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            GestureDetector(
-              onTap: showImageOptions,
-              child: Container(
-                height: 190,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.orange.withValues(
-                      alpha: 0.35,
-                    ),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: selectedImage != null
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.file(
-                            File(selectedImage!.path),
-                            fit: BoxFit.cover,
-                          ),
-                          Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Container(
-                              width: double.infinity,
-                              padding:
-                                  const EdgeInsets.all(10),
-                              color: Colors.black.withValues(
-                                alpha: 0.55,
-                              ),
-                              child: const Text(
-                                'Tap to change photo',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight:
-                                      FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment:
-                            MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_a_photo_outlined,
-                            size: 52,
-                            color: Colors.orange[700],
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            'Add Medicine Photo',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight:
-                                  FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            'Take a photo or choose from gallery',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+            buildPhotoArea(),
+
+            sectionTitle(
+              'Medicine Details',
             ),
 
-            sectionTitle('Medicine Details'),
-
             TextFormField(
-              controller: medicineNameController,
+              controller:
+                  medicineNameController,
               textCapitalization:
                   TextCapitalization.words,
               decoration: fieldDecoration(
                 label: 'Medicine Name',
                 icon: Icons.medication,
-                hint: 'Example: Amlodipine',
+                hint:
+                    'Edit the prescribed medicine name',
               ),
-              validator: (value) {
+              validator: (String? value) {
                 if (value == null ||
                     value.trim().isEmpty) {
                   return 'Please enter the medicine name.';
@@ -726,130 +1186,145 @@ class _AddMedicationPageState
 
             const SizedBox(height: 12),
 
-            TextFormField(
-              controller: dosageController,
-              decoration: fieldDecoration(
-                label: 'Dosage',
-                icon: Icons.local_pharmacy,
-                hint: 'Example: 1 tablet',
-              ),
-              validator: (value) {
-                if (value == null ||
-                    value.trim().isEmpty) {
-                  return 'Please enter the dosage.';
-                }
+            buildDosageStepper(),
 
-                return null;
-              },
+            sectionTitle('Instructions'),
+
+            Wrap(
+              spacing: 9,
+              runSpacing: 9,
+              children: [
+                buildInstructionOption(
+                  value: 'Before Food',
+                  icon: Icons.restaurant_outlined,
+                ),
+                buildInstructionOption(
+                  value: 'After Food',
+                  icon: Icons.restaurant,
+                ),
+                buildInstructionOption(
+                  value: 'Other',
+                  icon: Icons.edit_note,
+                ),
+              ],
             ),
 
-            const SizedBox(height: 12),
-
-            TextFormField(
-              controller: instructionsController,
-              maxLines: 3,
-              decoration: fieldDecoration(
-                label: 'Instructions',
-                icon: Icons.notes,
-                hint: 'Example: Take after breakfast',
+            if (selectedInstruction ==
+                'Other') ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller:
+                    customInstructionController,
+                maxLines: 2,
+                decoration: fieldDecoration(
+                  label: 'Other Instructions',
+                  icon: Icons.notes,
+                  hint:
+                      'Enter the prescribed instructions',
+                ),
               ),
+            ],
+
+            sectionTitle('Medicine Type'),
+
+            Row(
+              children: [
+                buildMedicationTypeOption(
+                  value: 'long_term',
+                  title: 'Chronic',
+                  description:
+                      'Long-term medication',
+                  icon: Icons.autorenew,
+                ),
+                const SizedBox(width: 12),
+                buildMedicationTypeOption(
+                  value: 'short_term',
+                  title: 'Acute',
+                  description:
+                      'Short-term medication',
+                  icon: Icons.event_available,
+                ),
+              ],
             ),
 
             sectionTitle('Reminder Times'),
 
-            ...reminderTimes.asMap().entries.map(
-              (entry) {
-                final index = entry.key;
-                final time = entry.value;
-
-                return Card(
-                  margin:
-                      const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    leading:
-                        const Icon(Icons.access_time),
-                    title: Text(
-                      time.format(context),
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      getTimeLabel(time),
-                    ),
-                    onTap: () {
-                      editReminderTime(index);
-                    },
-                    trailing: reminderTimes.length > 1
-                        ? IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                reminderTimes.removeAt(
-                                  index,
-                                );
-                              });
-                            },
-                          )
-                        : const Icon(Icons.edit),
-                  ),
+            buildReminderCard(
+              period: 'AM',
+              enabled: amReminderEnabled,
+              time: amReminderTime,
+              onChanged: (bool enabled) {
+                setState(() {
+                  amReminderEnabled =
+                      enabled;
+                });
+              },
+              onEditTime: () {
+                selectReminderTime(
+                  isAm: true,
                 );
               },
             ),
 
-            OutlinedButton.icon(
-              onPressed: addReminderTime,
-              icon: const Icon(Icons.add_alarm),
-              label:
-                  const Text('Add Another Reminder'),
-              style: OutlinedButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(
-                  vertical: 14,
-                ),
-              ),
+            buildReminderCard(
+              period: 'PM',
+              enabled: pmReminderEnabled,
+              time: pmReminderTime,
+              onChanged: (bool enabled) {
+                setState(() {
+                  pmReminderEnabled =
+                      enabled;
+                });
+              },
+              onEditTime: () {
+                selectReminderTime(
+                  isAm: false,
+                );
+              },
             ),
 
             sectionTitle('Repeat'),
 
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(
+                ButtonSegment<String>(
                   value: 'daily',
                   label: Text('Every Day'),
                   icon: Icon(Icons.today),
                 ),
-                ButtonSegment(
+                ButtonSegment<String>(
                   value: 'selected_days',
-                  label: Text('Selected Days'),
-                  icon: Icon(Icons.date_range),
+                  label:
+                      Text('Selected Days'),
+                  icon:
+                      Icon(Icons.date_range),
                 ),
               ],
               selected: {repeatType},
-              onSelectionChanged: (selection) {
+              onSelectionChanged:
+                  (Set<String> selection) {
                 setState(() {
-                  repeatType = selection.first;
+                  repeatType =
+                      selection.first;
                 });
               },
             ),
 
-            if (repeatType == 'selected_days') ...[
+            if (repeatType ==
+                'selected_days') ...[
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: weekDays.map((day) {
-                  final selected =
+                children:
+                    weekDays.map((String day) {
+                  final bool selected =
                       selectedDays.contains(day);
 
                   return FilterChip(
                     label: Text(day),
                     selected: selected,
-                    onSelected: (value) {
+                    onSelected: (bool value) {
                       setState(() {
                         if (value) {
                           selectedDays.add(day);
@@ -863,70 +1338,86 @@ class _AddMedicationPageState
               ),
             ],
 
-            sectionTitle('Medication Dates'),
+            sectionTitle(
+              'Medication Dates',
+            ),
 
             Card(
               child: ListTile(
-                leading:
-                    const Icon(Icons.calendar_today),
-                title: const Text('Start Date'),
-                subtitle: Text(
-                  formatDateForServer(startDate),
+                leading: const Icon(
+                  Icons.calendar_today,
                 ),
-                trailing: const Icon(Icons.edit),
+                title:
+                    const Text('Start Date'),
+                subtitle: Text(
+                  formatDateForServer(
+                    startDate,
+                  ),
+                ),
+                trailing:
+                    const Icon(Icons.edit),
                 onTap: selectStartDate,
               ),
             ),
 
             Card(
               child: ListTile(
-                leading:
-                    const Icon(Icons.event_available),
-                title: const Text('End Date'),
+                leading: const Icon(
+                  Icons.event_available,
+                ),
+                title: Text(
+                  medicationType ==
+                          'short_term'
+                      ? 'End Date (Required)'
+                      : 'End Date',
+                ),
                 subtitle: Text(
-                  endDate == null
+                  medicationType ==
+                          'long_term'
                       ? 'No end date'
-                      : formatDateForServer(endDate!),
+                      : endDate == null
+                          ? 'Select end date'
+                          : formatDateForServer(
+                              endDate!,
+                            ),
                 ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (endDate != null)
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            endDate = null;
-                          });
-                        },
-                        icon: const Icon(
-                          Icons.clear,
-                        ),
+                trailing: medicationType ==
+                        'short_term'
+                    ? const Icon(Icons.edit)
+                    : const Icon(
+                        Icons.all_inclusive,
                       ),
-                    const Icon(Icons.edit),
-                  ],
-                ),
-                onTap: selectEndDate,
+                onTap: medicationType ==
+                        'short_term'
+                    ? selectEndDate
+                    : null,
               ),
             ),
 
             sectionTitle('Medicine Stock'),
 
             TextFormField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
+              controller:
+                  quantityController,
+              keyboardType:
+                  TextInputType.number,
               decoration: fieldDecoration(
-                label: 'Remaining Quantity',
-                icon: Icons.inventory_2_outlined,
-                hint: 'Example: 30 tablets',
+                label:
+                    'Remaining Quantity',
+                icon: Icons
+                    .inventory_2_outlined,
+                hint: 'Example: 30',
               ),
-              validator: (value) {
+              validator: (String? value) {
                 if (value == null ||
                     value.trim().isEmpty) {
                   return null;
                 }
 
-                final quantity =
-                    int.tryParse(value.trim());
+                final int? quantity =
+                    int.tryParse(
+                  value.trim(),
+                );
 
                 if (quantity == null ||
                     quantity < 0) {
@@ -940,16 +1431,22 @@ class _AddMedicationPageState
             const SizedBox(height: 12),
 
             TextFormField(
-              controller: lowStockController,
-              keyboardType: TextInputType.number,
+              controller:
+                  lowStockController,
+              keyboardType:
+                  TextInputType.number,
               decoration: fieldDecoration(
-                label: 'Low Stock Warning',
-                icon: Icons.warning_amber,
+                label:
+                    'Low Stock Warning',
+                icon:
+                    Icons.warning_amber,
                 hint: 'Example: 5',
               ),
-              validator: (value) {
-                final threshold =
-                    int.tryParse(value?.trim() ?? '');
+              validator: (String? value) {
+                final int? threshold =
+                    int.tryParse(
+                  value?.trim() ?? '',
+                );
 
                 if (threshold == null ||
                     threshold < 0) {
@@ -965,8 +1462,9 @@ class _AddMedicationPageState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed:
-                    isSaving ? null : saveMedication,
+                onPressed: isSaving
+                    ? null
+                    : saveMedication,
                 icon: isSaving
                     ? const SizedBox(
                         width: 20,
@@ -985,20 +1483,29 @@ class _AddMedicationPageState
                           ? 'Save Changes'
                           : 'Add Medicine',
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
+                style:
+                    ElevatedButton.styleFrom(
+                  backgroundColor:
+                      Colors.orange,
+                  foregroundColor:
+                      Colors.white,
                   padding:
-                      const EdgeInsets.symmetric(
+                      const EdgeInsets
+                          .symmetric(
                     vertical: 16,
                   ),
-                  textStyle: const TextStyle(
+                  textStyle:
+                      const TextStyle(
                     fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
-                  shape: RoundedRectangleBorder(
+                  shape:
+                      RoundedRectangleBorder(
                     borderRadius:
-                        BorderRadius.circular(16),
+                        BorderRadius.circular(
+                      16,
+                    ),
                   ),
                 ),
               ),
