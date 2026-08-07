@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../Services/notifiService.dart';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -423,9 +425,30 @@ class _MedicationPageState
       );
 
       if (data is Map<String, dynamic> &&
-          data['success'] == true) {
-        await loadMedicationPage();
-      }
+          data['success'] == true){
+
+            final dynamic schedules = 
+                medication['schedules'];
+
+            if (schedules is List){
+              medication['schedules'];
+
+              if(schedules is List){
+                try{
+                  await NotifiService.cancelMedicationAlarms(
+                    schedules: schedules,
+                  );
+                } catch(notificationError){
+                  debugPrint(
+                    'Medication removed but alarm cancellation failed.'
+                    '$notificationError',
+                  );
+                }
+              }
+              await loadMedicationPage();
+            }
+          }
+
     } catch (error) {
       if (!mounted) return;
 

@@ -19,7 +19,7 @@ class _RobotCameraPageState extends State<RobotCameraPage>
 
   // Use the Pi IP address during testing.
   // You can try "pi.local" later if mDNS works on the phone.
-  static const String raspberryPiAddress = '10.23.252.152';
+  static const String raspberryPiAddress = '10.150.2.152';
 
   static const String cameraBaseUrl =
       'http://$raspberryPiAddress:5000';
