@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../Services/mmWaveService.dart';
+import 'ContactHelplinePage.dart';
 import 'ElderlyAppointmentPage.dart';
+import 'ElderlyProfilePage.dart';
 import 'LoginPage.dart';
 import 'MedicationPage.dart';
 import 'RobotCameraPage.dart';
@@ -21,10 +23,12 @@ class ElderlyHomePage extends StatefulWidget {
   });
 
   @override
-  State<ElderlyHomePage> createState() => _ElderlyHomePageState();
+  State<ElderlyHomePage> createState() =>
+      _ElderlyHomePageState();
 }
 
-class _ElderlyHomePageState extends State<ElderlyHomePage> {
+class _ElderlyHomePageState
+    extends State<ElderlyHomePage> {
   Map<String, dynamic>? currentStatus;
   List<dynamic> motionData = [];
 
@@ -43,15 +47,15 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   void initState() {
     super.initState();
 
-    // Get the sensor data immediately when the page opens.
     fetchMotionData();
 
-    // Automatically check the server every 30 seconds.
     _refreshTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) {
         if (mounted) {
-          fetchMotionData(showLoading: false);
+          fetchMotionData(
+            showLoading: false,
+          );
         }
       },
     );
@@ -59,7 +63,6 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
 
   @override
   void dispose() {
-    // Stop the timer when the user leaves this page.
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -79,15 +82,24 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         errorMessage = '';
       });
     } else {
-      isRefreshing = true;
+      setState(() {
+        isRefreshing = true;
+      });
     }
 
     try {
       final Map<String, dynamic> data =
-          await MmWaveService.getMotionData(widget.userId);
+          await MmWaveService.getMotionData(
+        widget.userId,
+      );
 
-      debugPrint('Logged-in user ID: ${widget.userId}');
-      debugPrint('Motion data: $data');
+      debugPrint(
+        'Logged-in user ID: ${widget.userId}',
+      );
+
+      debugPrint(
+        'Motion data: $data',
+      );
 
       if (!mounted) return;
 
@@ -98,18 +110,25 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         );
       }
 
-      final dynamic receivedStatus = data['current_status'];
-      final dynamic receivedEvents = data['events'];
+      final dynamic receivedStatus =
+          data['current_status'];
+
+      final dynamic receivedEvents =
+          data['events'];
 
       setState(() {
         if (receivedStatus is Map) {
-          currentStatus = Map<String, dynamic>.from(receivedStatus);
+          currentStatus =
+              Map<String, dynamic>.from(
+            receivedStatus,
+          );
         } else {
           currentStatus = null;
         }
 
         if (receivedEvents is List) {
-          motionData = receivedEvents;
+          motionData =
+              receivedEvents;
         } else {
           motionData = [];
         }
@@ -119,7 +138,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         errorMessage = '';
       });
     } catch (e) {
-      debugPrint('Motion data error: $e');
+      debugPrint(
+        'Motion data error: $e',
+      );
 
       if (!mounted) return;
 
@@ -127,10 +148,10 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         isLoading = false;
         isRefreshing = false;
 
-        // Keep existing sensor information visible during a silent
-        // automatic refresh failure.
-        if (showLoading || currentStatus == null) {
-          errorMessage = 'Connection error: $e';
+        if (showLoading ||
+            currentStatus == null) {
+          errorMessage =
+              'Connection error: $e';
         }
       });
     }
@@ -140,7 +161,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   // Sensor status helpers
   // ==================================================
 
-  String getStatusTitle(String status) {
+  String getStatusTitle(
+    String status,
+  ) {
     switch (status) {
       case 'normal_activity':
         return 'Normal Activity';
@@ -168,7 +191,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     }
   }
 
-  IconData getStatusIcon(String status) {
+  IconData getStatusIcon(
+    String status,
+  ) {
     switch (status) {
       case 'normal_activity':
         return Icons.directions_walk;
@@ -196,7 +221,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     }
   }
 
-  Color getStatusColor(String status) {
+  Color getStatusColor(
+    String status,
+  ) {
     switch (status) {
       case 'normal_activity':
         return Colors.green;
@@ -224,7 +251,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     }
   }
 
-  String formatEventType(String eventType) {
+  String formatEventType(
+    String eventType,
+  ) {
     switch (eventType) {
       case 'normal_activity':
         return 'Normal Activity';
@@ -261,7 +290,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
 
       default:
         final String formatted =
-            eventType.replaceAll('_', ' ').trim();
+            eventType
+                .replaceAll('_', ' ')
+                .trim();
 
         if (formatted.isEmpty) {
           return 'Unknown Activity';
@@ -270,9 +301,10 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
         return formatted
             .split(' ')
             .map(
-              (word) => word.isEmpty
-                  ? word
-                  : '${word[0].toUpperCase()}${word.substring(1)}',
+              (word) =>
+                  word.isEmpty
+                      ? word
+                      : '${word[0].toUpperCase()}${word.substring(1)}',
             )
             .join(' ');
     }
@@ -288,7 +320,8 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
-        builder: (context) => const LoginPage(),
+        builder: (context) =>
+            const LoginPage(),
       ),
     );
   }
@@ -297,39 +330,60 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   // Emergency help request
   // ==================================================
 
-  Future<void> createHelpRequest() async {
+  Future<void>
+      createHelpRequest() async {
     try {
-      final response = await http.post(
+      final response =
+          await http.post(
         Uri.parse(
           'http://elderlym.atspace.cc/create_help_request.php',
         ),
         body: {
-          'elderly_id': widget.userId.toString(),
-          'elderly_name': widget.fullName,
-          'request_type': 'emergency',
-          'description': 'Immediate assistance needed',
-          'location': 'Unknown',
+          'elderly_id':
+              widget.userId
+                  .toString(),
+
+          'elderly_name':
+              widget.fullName,
+
+          'request_type':
+              'emergency',
+
+          'description':
+              'Immediate assistance needed',
+
+          'location':
+              'Unknown',
         },
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode !=
+          200) {
         throw Exception(
           'Server returned status ${response.statusCode}.',
         );
       }
 
-      final dynamic decodedData = jsonDecode(response.body);
+      final dynamic decodedData =
+          jsonDecode(
+        response.body,
+      );
 
-      if (decodedData is! Map<String, dynamic>) {
-        throw Exception('Invalid response from server.');
+      if (decodedData
+          is! Map<String, dynamic>) {
+        throw Exception(
+          'Invalid response from server.',
+        );
       }
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
-            decodedData['message']?.toString() ??
+            decodedData['message']
+                    ?.toString() ??
                 'Help request submitted.',
           ),
         ),
@@ -337,7 +391,8 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         SnackBar(
           content: Text(
             'Error creating help request: $e',
@@ -352,185 +407,276 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   // ==================================================
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     final String statusCode =
-        currentStatus?['current_status']?.toString() ??
+        currentStatus?[
+                    'current_status']
+                ?.toString() ??
             'unknown';
 
-    final String statusDescription =
-        currentStatus?['status_description']?.toString() ??
+    final String
+        statusDescription =
+        currentStatus?[
+                    'status_description']
+                ?.toString() ??
             'No monitoring information available.';
 
-    final String lastSensorUpdate =
-        currentStatus?['last_sensor_update']?.toString() ??
+    final String
+        lastSensorUpdate =
+        currentStatus?[
+                    'last_sensor_update']
+                ?.toString() ??
             'No update received';
 
     final bool sensorOnline =
-        currentStatus?['sensor_online']?.toString() == '1';
+        currentStatus?[
+                    'sensor_online']
+                ?.toString() ==
+            '1';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor:
+          const Color(
+        0xFFF5F6FA,
+      ),
       appBar: AppBar(
         title: const Text(
           'Elderly Home',
           style: TextStyle(
-            fontWeight: FontWeight.bold,
+            fontWeight:
+                FontWeight.bold,
           ),
         ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        backgroundColor:
+            Colors.white,
+        foregroundColor:
+            Colors.black87,
         elevation: 0,
         actions: [
           if (isRefreshing)
             const Padding(
-              padding: EdgeInsets.symmetric(
+              padding:
+                  EdgeInsets.symmetric(
                 horizontal: 14,
                 vertical: 18,
               ),
               child: SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(
+                child:
+                    CircularProgressIndicator(
                   strokeWidth: 2,
                 ),
               ),
             )
           else
             IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh),
-              onPressed: () {
+              tooltip:
+                  'Refresh',
+              icon:
+                  const Icon(
+                Icons.refresh,
+              ),
+              onPressed:
+                  () {
                 fetchMotionData();
               },
             ),
           IconButton(
-            tooltip: 'Logout',
-            icon: const Icon(Icons.logout),
-            onPressed: logout,
+            tooltip:
+                'Logout',
+            icon:
+                const Icon(
+              Icons.logout,
+            ),
+            onPressed:
+                logout,
           ),
         ],
       ),
       body: isLoading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child:
+                  CircularProgressIndicator(),
             )
-          : errorMessage.isNotEmpty &&
-                  currentStatus == null
+          : errorMessage
+                      .isNotEmpty &&
+                  currentStatus ==
+                      null
               ? buildErrorDisplay()
               : RefreshIndicator(
                   onRefresh: () {
                     return fetchMotionData(
-                      showLoading: false,
+                      showLoading:
+                          false,
                     );
                   },
-                  child: SingleChildScrollView(
+                  child:
+                      SingleChildScrollView(
                     physics:
                         const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
+                    padding:
+                        const EdgeInsets.all(
+                      16,
+                    ),
+                    child:
+                        Column(
                       crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                          CrossAxisAlignment
+                              .start,
                       children: [
                         const Text(
                           'Good day 👋',
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                26,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 6),
+
+                        const SizedBox(
+                          height: 6,
+                        ),
+
                         Text(
                           'Welcome back, ${widget.fullName}!',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[700],
+                          style:
+                              TextStyle(
+                            fontSize:
+                                16,
+                            color:
+                                Colors.grey[
+                                    700],
                           ),
                         ),
 
-                        const SizedBox(height: 18),
+                        const SizedBox(
+                          height: 18,
+                        ),
 
                         buildMonitoringStatusCard(
-                          statusCode: statusCode,
+                          statusCode:
+                              statusCode,
                           statusDescription:
                               statusDescription,
                           lastSensorUpdate:
                               lastSensorUpdate,
-                          sensorOnline: sensorOnline,
+                          sensorOnline:
+                              sensorOnline,
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(
+                          height: 20,
+                        ),
 
                         buildEmergencyButton(),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(
+                          height: 24,
+                        ),
 
                         GridView.count(
-                          crossAxisCount: 2,
-                          shrinkWrap: true,
+                          crossAxisCount:
+                              2,
+                          shrinkWrap:
+                              true,
                           physics:
                               const NeverScrollableScrollPhysics(),
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 1.35,
+                          crossAxisSpacing:
+                              12,
+                          mainAxisSpacing:
+                              12,
+                          childAspectRatio:
+                              1.35,
                           children: [
                             featureCard(
-                              icon: sensorOnline
-                                  ? Icons.sensors
-                                  : Icons.sensors_off,
-                              title: 'Motion Sensor',
-                              subtitle: sensorOnline
-                                  ? 'Active'
-                                  : 'Offline',
-                              color: sensorOnline
-                                  ? Colors.green
-                                  : Colors.grey,
-                            ),
-                            featureCard(
-                              icon: Icons.medication,
-                              title: 'Medication',
-                              subtitle: 'View Medications',
-                              color: Colors.orange,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        MedicationPage(
-                                      userId: widget.userId,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            featureCard(
-                              icon: Icons.calendar_month,
-                              title: 'Appointments',
-                              subtitle: 'View Appointments',
-                              color: Colors.blue,
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        AppointmentPage(
-                                      userId: widget.userId,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            featureCard(
-                              icon: Icons.videocam_rounded,
-                              title: 'Emergency Camera',
+                              icon:
+                                  sensorOnline
+                                      ? Icons.sensors
+                                      : Icons.sensors_off,
+                              title:
+                                  'Motion Sensor',
                               subtitle:
-                                  'View live Camera Feed',
-                              color: Colors.red,
-                              onTap: () {
+                                  sensorOnline
+                                      ? 'Active'
+                                      : 'Offline',
+                              color:
+                                  sensorOnline
+                                      ? Colors.green
+                                      : Colors.grey,
+                            ),
+
+                            featureCard(
+                              icon:
+                                  Icons.medication,
+                              title:
+                                  'Medication',
+                              subtitle:
+                                  'View Medications',
+                              color:
+                                  Colors.orange,
+                              onTap:
+                                  () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        RobotCameraPage(),
+                                    builder:
+                                        (context) =>
+                                            MedicationPage(
+                                      userId:
+                                          widget.userId,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            featureCard(
+                              icon:
+                                  Icons.calendar_month,
+                              title:
+                                  'Appointments',
+                              subtitle:
+                                  'View Appointments',
+                              color:
+                                  Colors.blue,
+                              onTap:
+                                  () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            AppointmentPage(
+                                      userId:
+                                          widget.userId,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            featureCard(
+                              icon:
+                                  Icons.videocam_rounded,
+                              title:
+                                  'Emergency Camera',
+                              subtitle:
+                                  'View Live Camera Feed',
+                              color:
+                                  Colors.red,
+                              onTap:
+                                  () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) =>
+                                            const RobotCameraPage(),
                                   ),
                                 );
                               },
@@ -538,65 +684,97 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                           ],
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(
+                          height: 24,
+                        ),
 
                         const Text(
                           'Recent Motion Activity',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                20,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(
+                          height: 12,
+                        ),
 
                         buildMotionHistory(),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(
+                          height: 24,
+                        ),
 
                         const Text(
                           'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                          style:
+                              TextStyle(
+                            fontSize:
+                                20,
+                            fontWeight:
+                                FontWeight.bold,
                           ),
                         ),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(
+                          height: 12,
+                        ),
 
                         Row(
                           children: [
                             Expanded(
-                              child: actionButton(
-                                icon: Icons.help,
-                                label: 'Contact Helpline',
-                                color: Colors.pink,
-                                onTap: () {
-                                  ScaffoldMessenger.of(
+                              child:
+                                  actionButton(
+                                icon:
+                                    Icons.help,
+                                label:
+                                    'Contact Helpline',
+                                color:
+                                    Colors.pink,
+                                onTap:
+                                    () {
+                                  Navigator.push(
                                     context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Contact Helpline feature coming soon',
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              ContactHelplinePage(
+                                        userId:
+                                            widget.userId,
                                       ),
                                     ),
                                   );
                                 },
                               ),
                             ),
-                            const SizedBox(width: 12),
+
+                            const SizedBox(
+                              width: 12,
+                            ),
+
                             Expanded(
-                              child: actionButton(
-                                icon: Icons.person,
-                                label: 'View Profile',
-                                color: Colors.blueGrey,
-                                onTap: () {
-                                  ScaffoldMessenger.of(
+                              child:
+                                  actionButton(
+                                icon:
+                                    Icons.person,
+                                label:
+                                    'View Profile',
+                                color:
+                                    Colors.blueGrey,
+                                onTap:
+                                    () {
+                                  Navigator.push(
                                     context,
-                                  ).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Profile feature coming soon',
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) =>
+                                              ElderlyProfilePage(
+                                        userId:
+                                            widget.userId,
                                       ),
                                     ),
                                   );
@@ -606,7 +784,9 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
                           ],
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(
+                          height: 20,
+                        ),
                       ],
                     ),
                   ),
@@ -621,30 +801,54 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   Widget buildErrorDisplay() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding:
+            const EdgeInsets.all(
+          20,
+        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize:
+              MainAxisSize.min,
           children: [
             const Icon(
               Icons.cloud_off,
-              color: Colors.red,
-              size: 50,
+              color:
+                  Colors.red,
+              size:
+                  50,
             ),
-            const SizedBox(height: 12),
+
+            const SizedBox(
+              height: 12,
+            ),
+
             Text(
               errorMessage,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.red,
+              textAlign:
+                  TextAlign.center,
+              style:
+                  const TextStyle(
+                color:
+                    Colors.red,
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(
+              height: 16,
+            ),
+
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed:
+                  () {
                 fetchMotionData();
               },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Try Again'),
+              icon:
+                  const Icon(
+                Icons.refresh,
+              ),
+              label:
+                  const Text(
+                'Try Again',
+              ),
             ),
           ],
         ),
@@ -656,117 +860,179 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   // Monitoring status card
   // ==================================================
 
-  Widget buildMonitoringStatusCard({
+  Widget
+      buildMonitoringStatusCard({
     required String statusCode,
     required String statusDescription,
     required String lastSensorUpdate,
     required bool sensorOnline,
   }) {
     final Color statusColor =
-        getStatusColor(statusCode);
+        getStatusColor(
+      statusCode,
+    );
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
+      width:
+          double.infinity,
+      padding:
+          const EdgeInsets.all(
+        20,
+      ),
+      decoration:
+          BoxDecoration(
+        gradient:
+            LinearGradient(
           colors: [
             statusColor,
-            statusColor.withValues(alpha: 0.72),
+            statusColor.withValues(
+              alpha: 0.72,
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius:
+            BorderRadius.circular(
+          22,
+        ),
       ),
-      child: currentStatus == null
-          ? const Text(
-              'No sensor status available yet.',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-              ),
-            )
-          : Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Monitoring Status',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+      child:
+          currentStatus == null
+              ? const Text(
+                  'No sensor status available yet.',
+                  style:
+                      TextStyle(
+                    color:
+                        Colors.white,
+                    fontSize:
+                        16,
                   ),
-                ),
-
-                const SizedBox(height: 18),
-
-                Row(
+                )
+              : Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
                   children: [
-                    Icon(
-                      getStatusIcon(statusCode),
-                      color: Colors.white,
-                      size: 30,
+                    const Text(
+                      'Monitoring Status',
+                      style:
+                          TextStyle(
+                        color:
+                            Colors.white70,
+                        fontSize:
+                            22,
+                        fontWeight:
+                            FontWeight.bold,
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        getStatusTitle(statusCode),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 23,
-                          fontWeight: FontWeight.bold,
+
+                    const SizedBox(
+                      height: 18,
+                    ),
+
+                    Row(
+                      children: [
+                        Icon(
+                          getStatusIcon(
+                            statusCode,
+                          ),
+                          color:
+                              Colors.white,
+                          size:
+                              30,
                         ),
-                      ),
+
+                        const SizedBox(
+                          width: 10,
+                        ),
+
+                        Expanded(
+                          child:
+                              Text(
+                            getStatusTitle(
+                              statusCode,
+                            ),
+                            style:
+                                const TextStyle(
+                              color:
+                                  Colors.white,
+                              fontSize:
+                                  23,
+                              fontWeight:
+                                  FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
 
-                const SizedBox(height: 10),
-
-                Text(
-                  statusDescription,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    height: 1.35,
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                Text(
-                  'Last Update: $lastSensorUpdate',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                Row(
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      color: sensorOnline
-                          ? Colors.greenAccent
-                          : Colors.white70,
-                      size: 12,
+                    const SizedBox(
+                      height: 10,
                     ),
-                    const SizedBox(width: 8),
+
                     Text(
-                      sensorOnline
-                          ? 'Sensor Online'
-                          : 'Sensor Offline',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
+                      statusDescription,
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white,
+                        fontSize:
+                            15,
+                        height:
+                            1.35,
                       ),
+                    ),
+
+                    const SizedBox(
+                      height: 14,
+                    ),
+
+                    Text(
+                      'Last Update: $lastSensorUpdate',
+                      style:
+                          const TextStyle(
+                        color:
+                            Colors.white70,
+                        fontSize:
+                            13,
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 14,
+                    ),
+
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.circle,
+                          color:
+                              sensorOnline
+                                  ? Colors.greenAccent
+                                  : Colors.white70,
+                          size:
+                              12,
+                        ),
+
+                        const SizedBox(
+                          width: 8,
+                        ),
+
+                        Text(
+                          sensorOnline
+                              ? 'Sensor Online'
+                              : 'Sensor Offline',
+                          style:
+                              const TextStyle(
+                            color:
+                                Colors.white,
+                            fontWeight:
+                                FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
     );
   }
 
@@ -776,45 +1042,86 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
 
   Widget buildEmergencyButton() {
     return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.red,
-        borderRadius: BorderRadius.circular(20),
+      width:
+          double.infinity,
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.red,
+        borderRadius:
+            BorderRadius.circular(
+          20,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+            color:
+                Colors.red
+                    .withValues(
+              alpha:
+                  0.3,
+            ),
+            blurRadius:
+                12,
+            offset:
+                const Offset(
+              0,
+              6,
+            ),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: createHelpRequest,
-          child: const Padding(
-            padding: EdgeInsets.all(20),
-            child: Row(
+      child:
+          Material(
+        color:
+            Colors.transparent,
+        child:
+            InkWell(
+          borderRadius:
+              BorderRadius.circular(
+            20,
+          ),
+          onTap:
+              createHelpRequest,
+          child:
+              const Padding(
+            padding:
+                EdgeInsets.all(
+              20,
+            ),
+            child:
+                Row(
               children: [
                 Icon(
                   Icons.emergency,
-                  color: Colors.white,
-                  size: 40,
+                  color:
+                      Colors.white,
+                  size:
+                      40,
                 ),
-                SizedBox(width: 15),
+
+                SizedBox(
+                  width: 15,
+                ),
+
                 Expanded(
-                  child: Text(
+                  child:
+                      Text(
                     'Press if immediate assistance is needed',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
+                    style:
+                        TextStyle(
+                      color:
+                          Colors.white70,
+                      fontSize:
+                          14,
                     ),
                   ),
                 ),
+
                 Icon(
-                  Icons.arrow_forward_ios,
-                  color: Colors.white,
+                  Icons
+                      .arrow_forward_ios,
+                  color:
+                      Colors.white,
                 ),
               ],
             ),
@@ -831,48 +1138,82 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
   Widget buildMotionHistory() {
     if (motionData.isEmpty) {
       return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+        width:
+            double.infinity,
+        padding:
+            const EdgeInsets.all(
+          20,
         ),
-        child: const Text(
+        decoration:
+            BoxDecoration(
+          color:
+              Colors.white,
+          borderRadius:
+              BorderRadius.circular(
+            18,
+          ),
+        ),
+        child:
+            const Text(
           'No recent motion activity found.',
         ),
       );
     }
 
+    // Only show the latest 10 cards.
+    final int displayCount =
+        motionData.length > 10
+            ? 10
+            : motionData.length;
+
     return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: motionData.length,
-      itemBuilder: (context, index) {
-        final dynamic rawItem = motionData[index];
+      shrinkWrap:
+          true,
+      physics:
+          const NeverScrollableScrollPhysics(),
+      itemCount:
+          displayCount,
+      itemBuilder:
+          (
+        context,
+        index,
+      ) {
+        final dynamic rawItem =
+            motionData[index];
 
         if (rawItem is! Map) {
-          return const SizedBox.shrink();
+          return const SizedBox
+              .shrink();
         }
 
-        final Map<String, dynamic> item =
-            Map<String, dynamic>.from(rawItem);
+        final Map<String, dynamic>
+            item =
+            Map<String, dynamic>.from(
+          rawItem,
+        );
 
         final String eventType =
-            item['event_type']?.toString() ??
+            item['event_type']
+                    ?.toString() ??
                 'unknown';
 
         final String description =
-            item['event_description']?.toString() ??
+            item['event_description']
+                    ?.toString() ??
                 'No description available.';
 
         final String time =
-            item['detected_at']?.toString() ??
+            item['detected_at']
+                    ?.toString() ??
                 'Unknown time';
 
         return activityCard(
-          eventType: eventType,
-          description: description,
-          time: time,
+          eventType:
+              eventType,
+          description:
+              description,
+          time:
+              time,
         );
       },
     );
@@ -890,45 +1231,84 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     VoidCallback? onTap,
   }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+      borderRadius:
+          BorderRadius.circular(
+        18,
+      ),
+      onTap:
+          onTap,
+      child:
+          Container(
+        padding:
+            const EdgeInsets.all(
+          16,
+        ),
+        decoration:
+            BoxDecoration(
+          color:
+              Colors.white,
+          borderRadius:
+              BorderRadius.circular(
+            18,
+          ),
           boxShadow: [
             BoxShadow(
               color:
-                  Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+                  Colors.black
+                      .withValues(
+                alpha:
+                    0.05,
+              ),
+              blurRadius:
+                  8,
+              offset:
+                  const Offset(
+                0,
+                3,
+              ),
             ),
           ],
         ),
-        child: Column(
+        child:
+            Column(
           crossAxisAlignment:
-              CrossAxisAlignment.start,
+              CrossAxisAlignment
+                  .start,
           children: [
             Icon(
               icon,
-              color: color,
-              size: 30,
+              color:
+                  color,
+              size:
+                  30,
             ),
+
             const Spacer(),
+
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
+              style:
+                  const TextStyle(
+                fontSize:
+                    15,
+                fontWeight:
+                    FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 4),
+
+            const SizedBox(
+              height: 4,
+            ),
+
             Text(
               subtitle,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
+              style:
+                  TextStyle(
+                fontSize:
+                    13,
+                color:
+                    Colors.grey[
+                        600],
               ),
             ),
           ],
@@ -947,73 +1327,132 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     required String time,
   }) {
     final Color eventColor =
-        getStatusColor(eventType);
+        getStatusColor(
+      eventType,
+    );
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+      margin:
+          const EdgeInsets.only(
+        bottom: 12,
+      ),
+      padding:
+          const EdgeInsets.all(
+        14,
+      ),
+      decoration:
+          BoxDecoration(
+        color:
+            Colors.white,
+        borderRadius:
+            BorderRadius.circular(
+          18,
+        ),
         boxShadow: [
           BoxShadow(
             color:
-                Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+                Colors.black
+                    .withValues(
+              alpha:
+                  0.04,
+            ),
+            blurRadius:
+                8,
+            offset:
+                const Offset(
+              0,
+              3,
+            ),
           ),
         ],
       ),
-      child: Row(
+      child:
+          Row(
         crossAxisAlignment:
-            CrossAxisAlignment.start,
+            CrossAxisAlignment
+                .start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color:
-                  eventColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
+            padding:
+                const EdgeInsets.all(
+              12,
             ),
-            child: Icon(
-              getStatusIcon(eventType),
-              color: eventColor,
-              size: 28,
+            decoration:
+                BoxDecoration(
+              color:
+                  eventColor
+                      .withValues(
+                alpha:
+                    0.12,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                14,
+              ),
+            ),
+            child:
+                Icon(
+              getStatusIcon(
+                eventType,
+              ),
+              color:
+                  eventColor,
+              size:
+                  28,
             ),
           ),
 
-          const SizedBox(width: 14),
+          const SizedBox(
+            width: 14,
+          ),
 
           Expanded(
-            child: Column(
+            child:
+                Column(
               crossAxisAlignment:
-                  CrossAxisAlignment.start,
+                  CrossAxisAlignment
+                      .start,
               children: [
                 Text(
-                  formatEventType(eventType),
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+                  formatEventType(
+                    eventType,
+                  ),
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        17,
+                    fontWeight:
+                        FontWeight.bold,
                   ),
                 ),
 
-                const SizedBox(height: 4),
+                const SizedBox(
+                  height: 4,
+                ),
 
                 Text(
                   description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        14,
+                    color:
+                        Colors.grey,
                   ),
                 ),
 
-                const SizedBox(height: 5),
+                const SizedBox(
+                  height: 5,
+                ),
 
                 Text(
                   time,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey,
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        13,
+                    color:
+                        Colors.grey,
                   ),
                 ),
               ],
@@ -1035,17 +1474,33 @@ class _ElderlyHomePageState extends State<ElderlyHomePage> {
     required VoidCallback onTap,
   }) {
     return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(
-          vertical: 14,
+      onPressed:
+          onTap,
+      icon:
+          Icon(
+        icon,
+      ),
+      label:
+          Text(
+        label,
+      ),
+      style:
+          ElevatedButton.styleFrom(
+        backgroundColor:
+            color,
+        foregroundColor:
+            Colors.white,
+        padding:
+            const EdgeInsets.symmetric(
+          vertical:
+              14,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+        shape:
+            RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(
+            16,
+          ),
         ),
       ),
     );

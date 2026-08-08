@@ -27,8 +27,6 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
   final medicalController = TextEditingController();
   final emergencyContactController = TextEditingController();
   final emergencyPhoneController = TextEditingController();
-  final robotIdController = TextEditingController();
-  final sensorKitIdController = TextEditingController();
 
   String selectedGender = 'Male';
   String selectedMobilityStatus = 'Independent';
@@ -76,7 +74,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
         '&pageNum=1',
       );
 
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+      );
 
       if (!mounted) return;
 
@@ -116,7 +116,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
         phoneController.text.trim().isEmpty ||
         ageController.text.trim().isEmpty ||
         postalCodeController.text.trim().isEmpty ||
-        addressController.text.trim().isEmpty) {
+        addressController.text.trim().isEmpty ||
+        emergencyContactController.text.trim().isEmpty ||
+        emergencyPhoneController.text.trim().isEmpty) {
       showMessage('Please fill in all required fields.');
       return false;
     }
@@ -142,6 +144,11 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
       return false;
     }
 
+    if (emergencyPhoneController.text.trim().length != 8) {
+      showMessage('Please enter a valid 8 digit emergency contact number.');
+      return false;
+    }
+
     if (postalCodeController.text.trim().length != 6) {
       showMessage('Please enter a valid 6 digit postal code.');
       return false;
@@ -157,7 +164,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://elderlym.atspace.cc/register_elderly.php'),
+        Uri.parse(
+          'http://elderlym.atspace.cc/register_elderly.php',
+        ),
         body: {
           'full_name': fullNameController.text.trim(),
           'email': emailController.text.trim(),
@@ -171,10 +180,10 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           'gender': selectedGender,
           'mobility_status': selectedMobilityStatus,
           'relationship': selectedRelationship,
-          'robot_id': robotIdController.text.trim(),
-          'sensor_kit_id': sensorKitIdController.text.trim(),
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(
+        const Duration(seconds: 10),
+      );
 
       if (!mounted) return;
 
@@ -186,7 +195,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
       } else if (response.body.toLowerCase().contains('duplicate')) {
         showMessage('An account with this email already exists.');
       } else {
-        showMessage('Registration failed. Please check your details and try again.');
+        showMessage(
+          'Registration failed. Please check your details and try again.',
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -202,7 +213,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
 
   void showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(
+        content: Text(message),
+      ),
     );
   }
 
@@ -214,7 +227,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     if (password.length >= 8 &&
         password.contains(RegExp(r'[A-Z]')) &&
         password.contains(RegExp(r'[0-9]')) &&
-        password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+        password.contains(
+          RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
+        )) {
       return 'Strong';
     }
 
@@ -233,6 +248,7 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     if (strength == 'Strong') return Colors.green;
     if (strength == 'Medium') return Colors.orange;
     if (strength == 'Weak') return Colors.red;
+
     return Colors.grey;
   }
 
@@ -249,8 +265,7 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     medicalController.dispose();
     emergencyContactController.dispose();
     emergencyPhoneController.dispose();
-    robotIdController.dispose();
-    sensorKitIdController.dispose();
+
     super.dispose();
   }
 
@@ -274,7 +289,7 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
                   : currentStep == 2
                       ? 'Personal & Care Details'
                       : currentStep == 3
-                          ? 'Emergency & Device Setup'
+                          ? 'Emergency Contact & Consent'
                           : 'Registration Complete',
               style: const TextStyle(
                 fontSize: 28,
@@ -289,9 +304,12 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
                   : currentStep == 2
                       ? 'Tell us more about the elderly user.'
                       : currentStep == 3
-                          ? 'Set emergency contact and monitoring details.'
+                          ? 'Add an emergency contact and confirm monitoring consent.'
                           : 'Your account has been created.',
-              style: const TextStyle(fontSize: 15, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+              ),
             ),
             const SizedBox(height: 25),
             if (currentStep != 4) buildStepIndicator(),
@@ -317,15 +335,20 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
             backgroundImage:
                 profileImage != null ? FileImage(profileImage!) : null,
             child: profileImage == null
-                ? const Icon(Icons.add_a_photo_outlined,
-                    size: 40, color: Colors.blue)
+                ? const Icon(
+                    Icons.add_a_photo_outlined,
+                    size: 40,
+                    color: Colors.blue,
+                  )
                 : null,
           ),
         ),
         const SizedBox(height: 10),
         const Text(
           'Tap to add profile picture',
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(
+            color: Colors.grey,
+          ),
         ),
         const SizedBox(height: 25),
         buildTextField(
@@ -353,7 +376,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           },
           suffixIcon: IconButton(
             icon: Icon(
-              isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+              isPasswordVisible
+                  ? Icons.visibility_off
+                  : Icons.visibility,
             ),
             onPressed: () {
               setState(() {
@@ -379,7 +404,8 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
             ),
             onPressed: () {
               setState(() {
-                isConfirmPasswordVisible = !isConfirmPasswordVisible;
+                isConfirmPasswordVisible =
+                    !isConfirmPasswordVisible;
               });
             },
           ),
@@ -390,6 +416,7 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           hint: 'Enter phone number',
           icon: Icons.phone_outlined,
           controller: phoneController,
+          keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 35),
         buildNextButton(),
@@ -405,12 +432,17 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           hint: 'Enter age',
           icon: Icons.cake_outlined,
           controller: ageController,
+          keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 20),
         buildDropdownField(
           label: 'Gender',
           value: selectedGender,
-          items: const ['Male', 'Female', 'Prefer not to say'],
+          items: const [
+            'Male',
+            'Female',
+            'Prefer not to say',
+          ],
           icon: Icons.wc_outlined,
           onChanged: (newValue) {
             setState(() {
@@ -452,7 +484,10 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           },
         ),
         const SizedBox(height: 35),
-        buildBackNextButtons(backStep: 1, nextStep: 3),
+        buildBackNextButtons(
+          backStep: 1,
+          nextStep: 3,
+        ),
       ],
     );
   }
@@ -472,6 +507,7 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           hint: 'Enter emergency contact number',
           icon: Icons.phone_in_talk_outlined,
           controller: emergencyPhoneController,
+          keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 20),
         buildDropdownField(
@@ -483,7 +519,8 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
             'Sibling',
             'Relative',
             'Friend',
-            'Not Applicable',
+            'Neighbour',
+            'Other',
           ],
           icon: Icons.family_restroom_outlined,
           onChanged: (newValue) {
@@ -492,26 +529,41 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
             });
           },
         ),
-        const SizedBox(height: 20),
-        buildTextField(
-          label: 'Robot ID',
-          hint: 'E.g. ROBOT-001',
-          icon: Icons.smart_toy_outlined,
-          controller: robotIdController,
+        const SizedBox(height: 22),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: Colors.blue,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Home monitoring sensors and the patrol robot are linked to the account by the system and do not need to be entered during registration.',
+                  style: TextStyle(
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+
         const SizedBox(height: 20),
-        buildTextField(
-          label: 'Sensor Kit ID',
-          hint: 'E.g. SENSOR-001',
-          icon: Icons.sensors_outlined,
-          controller: sensorKitIdController,
-        ),
-        const SizedBox(height: 20),
+
         CheckboxListTile(
           value: monitoringConsent,
           onChanged: (value) {
             setState(() {
-              monitoringConsent = value!;
+              monitoringConsent = value ?? false;
             });
           },
           title: const Text(
@@ -520,13 +572,18 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
         ),
+
         const SizedBox(height: 35),
+
         Row(
           children: [
             Expanded(
               child: OutlinedButton(
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 55),
+                  minimumSize: const Size(
+                    double.infinity,
+                    55,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
@@ -545,7 +602,10 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
             Expanded(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 55),
+                  minimumSize: const Size(
+                    double.infinity,
+                    55,
+                  ),
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -555,18 +615,24 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
                 onPressed: isLoading
                     ? null
                     : () async {
-                        if (monitoringConsent != true) {
+                        if (!monitoringConsent) {
                           showMessage(
                             'Please agree to the consent before registering.',
                           );
                           return;
                         }
 
-                        if (!validateForm()) return;
+                        if (!validateForm()) {
+                          return;
+                        }
 
                         await registerElderly();
                       },
-                child: Text(isLoading ? 'Submitting...' : 'Submit'),
+                child: Text(
+                  isLoading
+                      ? 'Submitting...'
+                      : 'Submit',
+                ),
               ),
             ),
           ],
@@ -581,7 +647,9 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
       children: [
         const Text(
           'Postal Code',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -591,18 +659,24 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
           decoration: InputDecoration(
             counterText: '',
             hintText: 'Enter postal code',
-            prefixIcon: const Icon(Icons.location_searching_outlined),
+            prefixIcon: const Icon(
+              Icons.location_searching_outlined,
+            ),
             suffixIcon: isAddressLoading
                 ? const Padding(
                     padding: EdgeInsets.all(12),
                     child: SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
                     ),
                   )
                 : IconButton(
-                    icon: const Icon(Icons.search),
+                    icon: const Icon(
+                      Icons.search,
+                    ),
                     onPressed: fetchAddressFromPostalCode,
                   ),
             border: OutlineInputBorder(
@@ -661,7 +735,10 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
         Expanded(
           child: OutlinedButton(
             style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 55),
+              minimumSize: const Size(
+                double.infinity,
+                55,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(15),
               ),
@@ -678,7 +755,10 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
         Expanded(
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 55),
+              minimumSize: const Size(
+                double.infinity,
+                55,
+              ),
               backgroundColor: Colors.blue,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
@@ -705,16 +785,23 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     TextEditingController? controller,
     Widget? suffixIcon,
     Function(String)? onChanged,
+    TextInputType? keyboardType,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           obscureText: isPassword,
           onChanged: onChanged,
+          keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
             prefixIcon: Icon(icon),
@@ -738,7 +825,12 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
           value: value,
@@ -794,16 +886,22 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: isCompleted || isActive ? Colors.blue : Colors.grey.shade300,
+        color:
+            isCompleted || isActive ? Colors.blue : Colors.grey.shade300,
         shape: BoxShape.circle,
       ),
       child: Center(
         child: isCompleted
-            ? const Icon(Icons.check, color: Colors.white, size: 20)
+            ? const Icon(
+                Icons.check,
+                color: Colors.white,
+                size: 20,
+              )
             : Text(
                 '$stepNumber',
                 style: TextStyle(
-                  color: isActive ? Colors.white : Colors.grey.shade700,
+                  color:
+                      isActive ? Colors.white : Colors.grey.shade700,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -815,7 +913,8 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
     return Container(
       width: 45,
       height: 3,
-      color: isCompleted ? Colors.blue : Colors.grey.shade300,
+      color:
+          isCompleted ? Colors.blue : Colors.grey.shade300,
     );
   }
 
@@ -889,10 +988,14 @@ class _ElderlyRegistrationPageState extends State<ElderlyRegistrationPage> {
                 onPressed: () {
                   Navigator.pop(context);
                 },
-                icon: const Icon(Icons.login),
+                icon: const Icon(
+                  Icons.login,
+                ),
                 label: const Text(
                   'Go To Login',
-                  style: TextStyle(fontSize: 16),
+                  style: TextStyle(
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ),
