@@ -1,0 +1,1439 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.parse
+import urllib.request
+import urllib.error
+import json
+import threading
+
+import firebase_admin
+from firebase_admin import credentials, messaging
+
+
+# ============================================================
+# SETTINGS
+# ============================================================
+
+HOST = "0.0.0.0"
+PORT = 5000
+
+
+# ============================================================
+# MOTION INACTIVITY TIMER
+# ============================================================
+
+# Number of seconds without new motion before
+# sending the inactivity notifications.
+
+MOTION_TIMEOUT = 30
+
+motion_timer = None
+
+motion_timer_lock = threading.Lock()
+
+
+# ============================================================
+# FIREBASE
+# ============================================================
+
+FIREBASE_CREDENTIALS = (
+    r"C:\Users\techf\Downloads"
+    r"\elderlycareapp-553a8-b9e9a5baa626.json"
+)
+
+cred = credentials.Certificate(
+    FIREBASE_CREDENTIALS
+)
+
+firebase_admin.initialize_app(cred)
+
+
+# ============================================================
+# ATSPACE
+# ============================================================
+
+CREATE_REQUEST_URL = (
+    "http://elderlym.atspace.cc/"
+    "create_help_request.php"
+)
+
+GET_FCM_TOKEN_URL = (
+    "http://elderlym.atspace.cc/"
+    "get_fcm_token.php"
+)
+
+MOTION_URL = (
+    "http://elderlym.atspace.cc/"
+    "motion.php"
+)
+
+
+# ============================================================
+# ELDERLY INFORMATION
+# ============================================================
+
+ELDERLY_ID = 5
+ELDERLY_NAME = "Zyi"
+
+# Used for the panic help request.
+LOCATION = "Home"
+
+
+# ============================================================
+# VOLUNTEER INFORMATION
+# ============================================================
+
+# Volunteer who receives FCM notifications.
+
+VOLUNTEER_ID = 6
+
+
+# ============================================================
+# CALLMEBOT / TELEGRAM
+# ============================================================
+
+# IMPORTANT:
+#
+# Use the SAME API key that successfully sends
+# your panic button Telegram notification.
+#
+# Do NOT create another group.
+#
+# Do NOT create another API key.
+#
+# Replace this value if you regenerate your API key.
+
+API_KEY = "LTUxNTUzODQ5MjQ"
+
+
+# ============================================================
+# GET FCM TOKEN FROM ATSPACE
+# ============================================================
+
+def get_fcm_token():
+
+    print()
+    print("==============================")
+    print("GETTING FCM TOKEN")
+    print("==============================")
+
+    print(
+        "Looking up user ID:",
+        VOLUNTEER_ID
+    )
+
+    try:
+
+        url = (
+            GET_FCM_TOKEN_URL
+            + "?user_id="
+            + urllib.parse.quote(
+                str(VOLUNTEER_ID)
+            )
+        )
+
+        print()
+        print(
+            "Requesting:",
+            url
+        )
+
+        with urllib.request.urlopen(
+            url,
+            timeout=15
+        ) as response:
+
+            result = (
+                response
+                .read()
+                .decode()
+            )
+
+        print()
+        print("ATSpace FCM response:")
+        print(result)
+
+        data = json.loads(result)
+
+        # ----------------------------------------------------
+        # Check success
+        # ----------------------------------------------------
+
+        if not data.get("success"):
+
+            print()
+            print(
+                "ERROR: ATSpace could not "
+                "retrieve FCM token."
+            )
+
+            print(
+                data.get(
+                    "message",
+                    "Unknown error."
+                )
+            )
+
+            return None
+
+        # ----------------------------------------------------
+        # Get token
+        # ----------------------------------------------------
+
+        token = data.get(
+            "fcm_token"
+        )
+
+        if not token:
+
+            print()
+            print(
+                "ERROR: FCM token is empty."
+            )
+
+            return None
+
+        print()
+        print(
+            "FCM token successfully retrieved."
+        )
+
+        print(
+            "User ID:",
+            data.get("user_id")
+        )
+
+        print(
+            "Name:",
+            data.get("full_name")
+        )
+
+        print(
+            "Role:",
+            data.get("role")
+        )
+
+        print(
+            "Token length:",
+            len(token)
+        )
+
+        return token
+
+    except Exception as e:
+
+        print()
+        print(
+            "ERROR retrieving FCM token:"
+        )
+
+        print(e)
+
+        return None
+
+
+# ============================================================
+# SEND GENERIC FCM NOTIFICATION
+# ============================================================
+
+def send_fcm_notification(
+    title,
+    body
+):
+
+    print()
+    print("==============================")
+    print("SENDING FCM NOTIFICATION")
+    print("==============================")
+
+    # --------------------------------------------------------
+    # Get latest token
+    # --------------------------------------------------------
+
+    fcm_token = get_fcm_token()
+
+    if not fcm_token:
+
+        print()
+        print(
+            "ERROR: Could not get FCM token."
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # Create Firebase message
+    # --------------------------------------------------------
+
+    try:
+
+        message = messaging.Message(
+
+            notification=messaging.Notification(
+
+                title=title,
+
+                body=body
+
+            ),
+
+            token=fcm_token
+
+        )
+
+        print()
+        print(
+            "Notification title:"
+        )
+
+        print(title)
+
+        print()
+        print(
+            "Notification body:"
+        )
+
+        print(body)
+
+        print()
+        print(
+            "Sending message to Firebase..."
+        )
+
+        response = messaging.send(
+            message
+        )
+
+        print()
+        print(
+            "FCM notification sent successfully!"
+        )
+
+        print(
+            "Firebase message ID:"
+        )
+
+        print(response)
+
+        return True
+
+    except Exception as e:
+
+        print()
+        print(
+            "FCM notification failed:"
+        )
+
+        print(
+            type(e).__name__
+        )
+
+        print(e)
+
+        return False
+
+
+# ============================================================
+# PANIC FCM NOTIFICATION
+# ============================================================
+
+def send_fcm_panic_notification():
+
+    return send_fcm_notification(
+
+        "🚨 Emergency Alert",
+
+        "The panic button has been "
+        "pressed. Please check on "
+        "the elderly user."
+
+    )
+
+
+# ============================================================
+# MOTION INACTIVITY FCM NOTIFICATION
+# ============================================================
+
+def send_fcm_motion_inactivity_notification(
+    location
+):
+
+    return send_fcm_notification(
+
+        "⚠️ No Activity Detected",
+
+        "No new movement has been "
+        "detected at "
+        + location
+        + " for 30 seconds. "
+        "Please check on the elderly user."
+
+    )
+
+
+# ============================================================
+# CREATE EMERGENCY HELP REQUEST
+# ============================================================
+
+def create_help_request():
+
+    print()
+    print("==============================")
+    print("CREATING HELP REQUEST")
+    print("==============================")
+
+    data = urllib.parse.urlencode({
+
+        "elderly_id":
+            str(ELDERLY_ID),
+
+        "elderly_name":
+            ELDERLY_NAME,
+
+        "request_type":
+            "emergency",
+
+        "message":
+            "Physical panic button pressed",
+
+        "location":
+            LOCATION
+
+    }).encode("utf-8")
+
+    try:
+
+        request = urllib.request.Request(
+
+            CREATE_REQUEST_URL,
+
+            data=data,
+
+            method="POST"
+
+        )
+
+        request.add_header(
+            "Content-Type",
+            "application/x-www-form-urlencoded"
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=15
+        ) as response:
+
+            result = (
+                response
+                .read()
+                .decode()
+            )
+
+        print()
+        print(
+            "ATSpace response:"
+        )
+
+        print(result)
+
+        # ----------------------------------------------------
+        # Try JSON
+        # ----------------------------------------------------
+
+        try:
+
+            response_data = json.loads(
+                result
+            )
+
+            if (
+                response_data.get(
+                    "success"
+                )
+                is True
+            ):
+
+                print()
+                print(
+                    "HELP REQUEST CREATED "
+                    "SUCCESSFULLY!"
+                )
+
+                return True
+
+        except Exception:
+
+            pass
+
+        print()
+        print(
+            "ATSpace reported an error."
+        )
+
+        return False
+
+    except Exception as e:
+
+        print()
+        print(
+            "ATSpace connection error:"
+        )
+
+        print(e)
+
+        return False
+
+
+# ============================================================
+# SEND MOTION DATA TO ATSPACE
+# ============================================================
+
+def send_motion_to_atspace(
+    movement,
+    location
+):
+
+    print()
+    print("==============================")
+    print(
+        "SENDING MOTION DATA TO ATSPACE"
+    )
+    print("==============================")
+
+    print(
+        "Movement:",
+        movement
+    )
+
+    print(
+        "Location:",
+        location
+    )
+
+    try:
+
+        # ----------------------------------------------------
+        # Build parameters
+        # ----------------------------------------------------
+
+        params = urllib.parse.urlencode({
+
+            "movement":
+                movement,
+
+            "location":
+                location
+
+        })
+
+        # ----------------------------------------------------
+        # Build URL
+        # ----------------------------------------------------
+
+        url = (
+            MOTION_URL
+            + "?"
+            + params
+        )
+
+        print()
+        print(
+            "Motion URL:"
+        )
+
+        print(url)
+
+        # ----------------------------------------------------
+        # Send request
+        # ----------------------------------------------------
+
+        with urllib.request.urlopen(
+            url,
+            timeout=15
+        ) as response:
+
+            result = (
+                response
+                .read()
+                .decode()
+            )
+
+        print()
+        print(
+            "ATSpace motion response:"
+        )
+
+        print(result)
+
+        return True
+
+    except Exception as e:
+
+        print()
+        print(
+            "ERROR sending motion data:"
+        )
+
+        print(e)
+
+        return False
+
+
+# ============================================================
+# SHARED TELEGRAM FUNCTION
+# ============================================================
+
+def send_telegram(message):
+
+    print()
+    print("==============================")
+    print("SENDING TELEGRAM ALERT")
+    print("==============================")
+
+    print()
+    print("Telegram message:")
+    print(message)
+
+    # --------------------------------------------------------
+    # Check API key
+    # --------------------------------------------------------
+
+    if (
+        not API_KEY
+        or
+        API_KEY == ""
+    ):
+
+        print()
+        print(
+            "ERROR: CallMeBot API key "
+            "has not been configured."
+        )
+
+        return False
+
+    # --------------------------------------------------------
+    # Encode message
+    # --------------------------------------------------------
+
+    encoded_message = urllib.parse.quote(
+        message,
+        safe=""
+    )
+
+    # --------------------------------------------------------
+    # CallMeBot URL
+    # --------------------------------------------------------
+
+    url = (
+        "https://api.callmebot.com/"
+        "telegram/group.php"
+        "?apikey="
+        + API_KEY
+        + "&text="
+        + encoded_message
+    )
+
+    print()
+    print(
+        "CallMeBot URL prepared."
+    )
+
+    print(
+        "Sending message through CallMeBot..."
+    )
+
+    try:
+
+        request = urllib.request.Request(
+
+            url,
+
+            headers={
+                "User-Agent":
+                    "Mozilla/5.0"
+            }
+
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=15
+        ) as response:
+
+            status_code = response.status
+
+            result = (
+                response
+                .read()
+                .decode()
+            )
+
+        print()
+        print("==============================")
+        print("CALLMEBOT RESPONSE")
+        print("==============================")
+
+        print(
+            "HTTP status:",
+            status_code
+        )
+
+        print(
+            "Response:",
+            result
+        )
+
+        if status_code == 200:
+
+            print()
+            print(
+                "Telegram alert sent successfully!"
+            )
+
+            return True
+
+        print()
+        print(
+            "CallMeBot returned an error."
+        )
+
+        return False
+
+    except urllib.error.HTTPError as e:
+
+        print()
+        print("==============================")
+        print("CALLMEBOT HTTP ERROR")
+        print("==============================")
+
+        print(
+            "HTTP status:",
+            e.code
+        )
+
+        print(
+            "Reason:",
+            e.reason
+        )
+
+        try:
+
+            error_response = (
+                e.read()
+                .decode()
+            )
+
+            print()
+            print(
+                "CallMeBot error response:"
+            )
+
+            print(
+                error_response
+            )
+
+        except Exception:
+
+            pass
+
+        return False
+
+    except Exception as e:
+
+        print()
+        print("==============================")
+        print("CALLMEBOT ERROR")
+        print("==============================")
+
+        print(
+            "Error type:",
+            type(e).__name__
+        )
+
+        print(
+            "Error:",
+            e
+        )
+
+        return False
+
+
+# ============================================================
+# PANIC TELEGRAM NOTIFICATION
+# ============================================================
+
+def send_telegram_panic_notification():
+
+    telegram_message = (
+
+        "🚨🚨 PANIC ALERT 🚨🚨\n\n"
+
+        "🔴 HELP REQUEST RECEIVED\n\n"
+
+        "Elderly user: "
+        + ELDERLY_NAME
+        + "\n\n"
+
+        "An emergency button has been "
+        "activated.\n\n"
+
+        "⚠️ PLEASE CHECK ON THE ELDERLY "
+        "USER IMMEDIATELY."
+
+    )
+
+    return send_telegram(
+        telegram_message
+    )
+
+
+# ============================================================
+# VIBRATION / INACTIVITY TELEGRAM NOTIFICATION
+# ============================================================
+
+def send_telegram_motion_inactivity_notification(
+    location
+):
+
+    telegram_message = (
+
+        "⚠️⚠️ INACTIVITY ALERT ⚠️⚠️\n\n"
+
+        "🟡 NO RECENT ACTIVITY DETECTED\n\n"
+
+        "Elderly user: "
+        + ELDERLY_NAME
+        + "\n\n"
+
+        "Location: "
+        + location
+        + "\n\n"
+
+        "No new movement has been "
+        "detected for 30 seconds.\n\n"
+
+        "⚠️ PLEASE CHECK ON THE "
+        "ELDERLY USER."
+
+    )
+
+    return send_telegram(
+        telegram_message
+    )
+
+
+# ============================================================
+# MOTION TIMER EXPIRED
+# ============================================================
+
+def motion_timeout_reached(
+    location
+):
+
+    print()
+    print("==============================")
+    print(
+        "30 SECONDS WITHOUT NEW MOTION"
+    )
+    print("==============================")
+
+    print(
+        "Location:",
+        location
+    )
+
+    print()
+    print(
+        "No new sensor data received "
+        "for 30 seconds."
+    )
+
+    # ========================================================
+    # SEND FCM
+    # ========================================================
+
+    print()
+    print(
+        "Sending inactivity FCM notification..."
+    )
+
+    fcm_success = (
+        send_fcm_motion_inactivity_notification(
+            location
+        )
+    )
+
+    # ========================================================
+    # SEND TELEGRAM
+    # ========================================================
+
+    print()
+    print(
+        "Sending inactivity Telegram notification..."
+    )
+
+    telegram_success = (
+        send_telegram_motion_inactivity_notification(
+            location
+        )
+    )
+
+    # ========================================================
+    # RESULTS
+    # ========================================================
+
+    print()
+    print("==============================")
+    print("INACTIVITY ALERT RESULTS")
+    print("==============================")
+
+    print(
+        "Flutter FCM notification:",
+        "SUCCESS"
+        if fcm_success
+        else "FAILED"
+    )
+
+    print(
+        "Telegram notification:",
+        "SUCCESS"
+        if telegram_success
+        else "FAILED"
+    )
+
+    print("==============================")
+    print()
+
+
+# ============================================================
+# RESET MOTION TIMER
+# ============================================================
+
+def reset_motion_timer(
+    location
+):
+
+    global motion_timer
+
+    with motion_timer_lock:
+
+        # ----------------------------------------------------
+        # Cancel previous timer
+        # ----------------------------------------------------
+
+        if motion_timer is not None:
+
+            motion_timer.cancel()
+
+            print()
+            print(
+                "Previous 30-second timer "
+                "cancelled."
+            )
+
+        # ----------------------------------------------------
+        # Start new timer
+        # ----------------------------------------------------
+
+        print()
+        print(
+            "Starting 30-second "
+            "inactivity timer..."
+        )
+
+        motion_timer = threading.Timer(
+
+            MOTION_TIMEOUT,
+
+            motion_timeout_reached,
+
+            args=[location]
+
+        )
+
+        motion_timer.daemon = True
+
+        motion_timer.start()
+
+        print(
+            "Timer started."
+        )
+
+        print(
+            "Notification will be sent "
+            "if no new motion arrives "
+            "within",
+            MOTION_TIMEOUT,
+            "seconds."
+        )
+
+
+# ============================================================
+# HTTP SERVER
+# ============================================================
+
+class ElderlyHandler(
+    BaseHTTPRequestHandler
+):
+
+    # ========================================================
+    # GET REQUEST
+    # ========================================================
+
+    def do_GET(self):
+
+        print()
+        print("==============================")
+        print("REQUEST RECEIVED")
+        print("==============================")
+
+        print(
+            "Path:",
+            self.path
+        )
+
+        # ====================================================
+        # PARSE URL
+        # ====================================================
+
+        parsed = urllib.parse.urlparse(
+            self.path
+        )
+
+        params = urllib.parse.parse_qs(
+            parsed.query
+        )
+
+        # ====================================================
+        # PANIC ENDPOINT
+        # ====================================================
+
+        if parsed.path == "/panic":
+
+            self.handle_panic()
+
+            return
+
+        # ====================================================
+        # MOTION ENDPOINT
+        # ====================================================
+
+        elif parsed.path == "/motion":
+
+            self.handle_motion(
+                params
+            )
+
+            return
+
+        # ====================================================
+        # DEFAULT
+        # ====================================================
+
+        else:
+
+            response = (
+                "Elderly monitoring "
+                "server is running."
+            )
+
+            self.send_response(200)
+
+            self.send_header(
+                "Content-Type",
+                "text/plain"
+            )
+
+            self.send_header(
+                "Content-Length",
+                str(
+                    len(
+                        response.encode()
+                    )
+                )
+            )
+
+            self.end_headers()
+
+            self.wfile.write(
+                response.encode()
+            )
+
+
+    # ========================================================
+    # HANDLE PANIC
+    # ========================================================
+
+    def handle_panic(self):
+
+        print()
+        print("==============================")
+        print(
+            "PANIC REQUEST RECEIVED!"
+        )
+        print("==============================")
+
+
+        # ----------------------------------------------------
+        # 1. Create help request
+        # ----------------------------------------------------
+
+        atspace_success = (
+            create_help_request()
+        )
+
+
+        # ----------------------------------------------------
+        # 2. Send FCM
+        # ----------------------------------------------------
+
+        fcm_success = (
+            send_fcm_panic_notification()
+        )
+
+
+        # ----------------------------------------------------
+        # 3. Send Telegram
+        # ----------------------------------------------------
+
+        telegram_success = (
+            send_telegram_panic_notification()
+        )
+
+
+        # ----------------------------------------------------
+        # Print results
+        # ----------------------------------------------------
+
+        print()
+        print("==============================")
+        print(
+            "PANIC ALERT RESULTS"
+        )
+        print("==============================")
+
+        print(
+            "ATSpace help request:",
+            "SUCCESS"
+            if atspace_success
+            else "FAILED"
+        )
+
+        print(
+            "Flutter FCM notification:",
+            "SUCCESS"
+            if fcm_success
+            else "FAILED"
+        )
+
+        print(
+            "Telegram notification:",
+            "SUCCESS"
+            if telegram_success
+            else "FAILED"
+        )
+
+
+        # ----------------------------------------------------
+        # Response to Pico
+        # ----------------------------------------------------
+
+        if (
+            atspace_success
+            or
+            fcm_success
+            or
+            telegram_success
+        ):
+
+            response = (
+                "PANIC ALERT SENT"
+            )
+
+        else:
+
+            response = (
+                "FAILED TO SEND "
+                "PANIC ALERT"
+            )
+
+
+        self.send_response(200)
+
+        self.send_header(
+            "Content-Type",
+            "text/plain"
+        )
+
+        self.send_header(
+            "Content-Length",
+            str(
+                len(
+                    response.encode()
+                )
+            )
+        )
+
+        self.end_headers()
+
+        self.wfile.write(
+            response.encode()
+        )
+
+
+    # ========================================================
+    # HANDLE MOTION
+    # ========================================================
+
+    def handle_motion(
+        self,
+        params
+    ):
+
+        print()
+        print("==============================")
+        print(
+            "MOTION REQUEST RECEIVED!"
+        )
+        print("==============================")
+
+
+        # ----------------------------------------------------
+        # Get values from Pico
+        # ----------------------------------------------------
+
+        movement = params.get(
+            "movement",
+            ["0"]
+        )[0]
+
+        location = params.get(
+            "location",
+            ["unknown"]
+        )[0]
+
+
+        print()
+        print(
+            "Movement:",
+            movement
+        )
+
+        print(
+            "Location:",
+            location
+        )
+
+
+        # ====================================================
+        # 1. SAVE MOTION DATA
+        # ====================================================
+
+        atspace_success = (
+            send_motion_to_atspace(
+                movement,
+                location
+            )
+        )
+
+
+        # ====================================================
+        # 2. RESET INACTIVITY TIMER
+        # ====================================================
+
+        reset_motion_timer(
+            location
+        )
+
+
+        # ====================================================
+        # PRINT RESULTS
+        # ====================================================
+
+        print()
+        print("==============================")
+        print(
+            "MOTION RESULTS"
+        )
+        print("==============================")
+
+        print(
+            "ATSpace motion data:",
+            "SUCCESS"
+            if atspace_success
+            else "FAILED"
+        )
+
+        print(
+            "Inactivity timer:",
+            "RESET"
+        )
+
+
+        # ====================================================
+        # RESPONSE TO PICO
+        # ====================================================
+
+        if atspace_success:
+
+            response = (
+                "MOTION DATA SENT"
+            )
+
+        else:
+
+            response = (
+                "MOTION TIMER RESET"
+            )
+
+
+        self.send_response(200)
+
+        self.send_header(
+            "Content-Type",
+            "text/plain"
+        )
+
+        self.send_header(
+            "Content-Length",
+            str(
+                len(
+                    response.encode()
+                )
+            )
+        )
+
+        self.end_headers()
+
+        self.wfile.write(
+            response.encode()
+        )
+
+
+    # ========================================================
+    # HIDE HTTP SERVER LOGS
+    # ========================================================
+
+    def log_message(
+        self,
+        format,
+        *args
+    ):
+
+        pass
+
+
+# ============================================================
+# START SERVER
+# ============================================================
+
+print()
+print("==============================")
+print(
+    "ELDERLY MONITORING SERVER"
+)
+print("==============================")
+
+print()
+
+print(
+    "Server port:",
+    PORT
+)
+
+print()
+
+print(
+    "ATSpace motion:",
+    MOTION_URL
+)
+
+print(
+    "ATSpace FCM:",
+    GET_FCM_TOKEN_URL
+)
+
+print()
+
+print(
+    "Elderly ID:",
+    ELDERLY_ID
+)
+
+print(
+    "Elderly Name:",
+    ELDERLY_NAME
+)
+
+print(
+    "Volunteer ID:",
+    VOLUNTEER_ID
+)
+
+print()
+
+print(
+    "Motion inactivity timeout:",
+    MOTION_TIMEOUT,
+    "seconds"
+)
+
+print()
+
+print(
+    "Firebase FCM: ENABLED"
+)
+
+print(
+    "Telegram: ENABLED"
+)
+
+print()
+
+print(
+    "One Telegram group/API key "
+    "used for both alerts."
+)
+
+print()
+
+print(
+    "Endpoints:"
+)
+
+print(
+    "  /panic"
+)
+
+print(
+    "  /motion"
+)
+
+print()
+
+print(
+    "Waiting for Pico..."
+)
+
+print(
+    "Press CTRL+C to stop."
+)
+
+print()
+
+
+# ============================================================
+# CREATE SERVER
+# ============================================================
+
+server = HTTPServer(
+    (HOST, PORT),
+    ElderlyHandler
+)
+
+
+# ============================================================
+# START SERVER
+# ============================================================
+
+server.serve_forever()
